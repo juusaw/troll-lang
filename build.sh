@@ -1,5 +1,5 @@
 ocamlyacc parser.mly
-ocamllex Lexer.mll
+ocamllex lexer.mll
 ocamlc -o troll \
  syntax.ml\
  parser.mli parser.ml \
