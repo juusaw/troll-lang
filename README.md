@@ -12,6 +12,8 @@ The project can be compiled using standard OCaml tools (`ocamlc`, `ocamllex`, `o
 
 Run the command `./build.sh` to generate the binary.
 
+To test that the program, try the following `echo "d20" | ./troll`
+
 ## TODO
 
 - Port the distribution features available in the SML implementation
