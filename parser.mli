@@ -1,5 +1,3 @@
-open Syntax
-
 type token =
   | NUM of (int*(int*int))
   | ID of (string*(int*int))
@@ -74,4 +72,4 @@ type token =
   | FLOAT of (float*(int*int))
 
 val dice :
-  (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> Syntax.program
+  (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> Syntax.Syntax.program
