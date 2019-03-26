@@ -204,11 +204,8 @@ struct
                    defs d,(0,0))))
       | Some n -> run0 args filename n defs
 
-  let _ =
-    Random.self_init();
-    let argv = Array.to_list Sys.argv in
-    try
-      run0 (List.tl argv) "" 1 (fun d -> d)
+  let main filename = try
+      run0 [] filename 1 (fun d -> d)
     with Parsing.YYexit ob -> errorMess "Parser-exit\n"
        | Parsing.Parse_error ->
          let (p1,p2) = (0, 0) in
@@ -226,5 +223,21 @@ struct
                     ^ string_of_int lin ^ ", column " ^ string_of_int col)
        | Sys_error s -> errorMess ("Exception: " ^ s)
        | ParamErr s -> errorMess ("Bad command-line parameter: " ^ s)
+
+  let spec =
+    let open Core.Command.Spec in
+    empty
+    +> anon ("filename" %: string)
+
+  let command =
+    Core.Command.basic
+      ~summary:"Simulate dice rolling based on a domain-specific syntax"
+      ~readme:(fun () -> "Command-line options")
+      spec
+      (fun filename () -> main filename)
+
+  let _ =
+    Random.self_init();
+    Core.Command.run ~version:"0.0.1" command
 end
 
