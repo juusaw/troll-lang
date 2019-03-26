@@ -1,0 +1,481 @@
+open Syntax
+
+module Interpreter =
+struct
+
+  exception RunError of string * Syntax.pos
+
+  type value = VAL of int list
+             | TEXT of string list
+             | PAIR of value * value
+
+  (* TODO move elsewhere *)
+  let sign n =
+    match n with
+    | 0 -> 0
+    | _ -> (n / abs(n))
+
+  let rec take k xs = match k with
+    | 0 -> []
+    | k -> match xs with
+      | [] -> failwith "take"
+      | y::ys -> y :: (take (k - 1) ys)
+
+  let rec drop' n h =
+    if n == 0
+    then h
+    else (drop' (n-1)
+            (match h with
+               a::b -> b
+             | [] -> failwith "drop"))
+
+  let rec last = function
+      x::[] -> x
+    | x::xs -> last xs
+    | [] -> failwith "last"
+
+  let is_empty = function
+      [] -> true
+    | _ -> false
+
+  let rec zip lst1 lst2 = match lst1,lst2 with
+    | [],_ -> []
+    | _, []-> []
+    | (x::xs),(y::ys) -> (x,y) :: (zip xs ys)
+
+  let tabulate n f =  List.init n (fun x -> f(x + 1))
+
+  let rand n = 1 + Random.int n
+
+  let rec tryFn p = tryFn' p 30 (* true with probability p *)
+
+  and tryFn' p n = (* scale p until integral *)
+    if n=0 then true
+    else
+      let p1 = floor (10.0 *. p) in
+      let r = float_of_int (rand 10 - 1)
+      in
+      if r < p1 then true
+      else if r > p1 then false
+      else tryFn' (10.0 *. p -. p1) (n-1)
+
+  let rec merge a b = match a, b with
+    | [], l2 -> l2
+    | (a::l1), l2 -> merge1 a l1 l2
+
+  and merge1 a b c = match a, b, c with
+    | a, l1, [] -> a :: l1
+    | a, l1, (b::l2) ->
+      if a<=b then a :: merge1 b l2 l1
+      else b :: merge1 a l1 l2
+
+  let rec member a b = match a, b with
+    | a, [] -> false
+    | a, (b::l2) -> a = b || member a l2
+
+  let rec drop a b = match a, b with 
+    | [], l2 -> []
+    | (a::l1), l2 -> if member a l2 then drop l1 l2 else a :: drop l1 l2
+
+  let rec keep a b = match a, b with
+    | [], l2 -> []
+    | (a::l1), l2 ->
+      if member a l2 then a :: keep l1 l2 else keep l1 l2
+
+  let rec drop1 a b = match a, b with
+    | a, [] -> []
+    | a, (b::bs) -> if a=b then bs else b :: drop1 a bs
+
+  let rec setminus a b = match a, b with
+    | [], l2 -> []
+    | (a::l1), l2 ->
+      if member a l2 then setminus l1 (drop1 a l2)
+      else a :: setminus l1 l2
+
+  (* randomly pick m out of n elements *)
+  let rec pick a b c = match a,b,c with
+    | 0, n, xs -> []
+    | m, n, (x::xs) ->
+      if n<=m then x::xs
+      else if rand n <= m then x :: pick (m-1) (n-1) xs
+      else pick m (n-1) xs
+    | _, _, _ -> raise (RunError ("Bad call to pick",(0,0)))
+
+  let rec lookup a b = match a, b with
+    | x, [] -> None
+    | x, ((y,v)::table) ->
+      if x=y then Some v else lookup x table
+
+  let rec rollDice (decs, dice) = evalExp0 dice [] decs
+
+  and evalExp0 exp table decs =
+    let rec evalExp exp table =
+      match exp with
+        Syntax.NUM (n,p) -> VAL [n]
+      | Syntax.ID (x,p) ->
+        (match lookup x table with
+           Some v -> v
+         | None -> raise (RunError ("unknown variable: "^x,p)))
+      | Syntax.EMPTY -> VAL []
+      | Syntax.CONC (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL v1, VAL v2) -> VAL (merge v1 v2)
+         | _ -> raise (RunError ("Args to @ must be collections",p)))
+      | Syntax.DROP (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL v1, VAL v2) -> VAL (drop v1 v2)
+         | _ -> raise (RunError ("Args to drop must be collections",p)))
+      | Syntax.KEEP (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL v1, VAL v2) -> VAL (keep v1 v2)
+         | _ -> raise (RunError ("Args to keep must be collections",p)))
+      | Syntax.SETMINUS (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL v1, VAL v2) -> VAL (setminus v1 v2)
+         | _ -> raise (RunError ("Args to setminus must be collections",p)))
+      | Syntax.CHOOSE (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL [] -> raise (RunError ("Arg to choose most be non-empty",p))
+         | VAL ns -> VAL [List.nth ns (rand (List.length ns) - 1)]
+         | _  -> raise (RunError ("Arg to choose must be a collection",p)))
+      | Syntax.PICK (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL ns, VAL [n]) -> VAL (pick n (List.length ns) ns)
+         | _ -> raise (RunError ("The first arg to pick must be a collection, and the second a number",p)))
+      | Syntax.DIFFERENT (e1,p) ->
+        let rec noDups = function
+            [] -> []
+          | (x::xs) ->
+            let ys = noDups xs in (drop [x] ys)@ys
+        in
+        (match (evalExp e1 table) with
+           VAL v -> VAL (noDups v)
+         | _ -> raise (RunError ("Arg to different must be a collection",p)))
+
+      | Syntax.PLUS (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL [n2]) -> VAL [n1 + n2]
+         | _ -> raise (RunError ("illegal arg to +",p)))
+      | Syntax.MINUS (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL [n2]) -> VAL [n1-n2]
+         | _ -> raise (RunError ("illegal arg to -",p)))
+      | Syntax.UMINUS (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL [n1] -> VAL [~-n1]
+         | _ -> raise (RunError ("illegal arg to -",p)))
+      | Syntax.TIMES (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL [n2]) -> VAL [n1*n2]
+         | _ -> raise (RunError ("illegal arg to *",p)))
+      | Syntax.DIVIDE (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [], VAL [n2]) -> VAL [0]
+         | (VAL [n1], VAL [n2]) ->
+           if n2=0 then raise (RunError ("division by 0",p))
+           else VAL [n1 / n2]
+         | _ -> raise (RunError ("illegal arg to /",p)))
+      | Syntax.MOD (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [], VAL [n2]) -> VAL [0]
+         | (VAL [n1], VAL [n2]) ->
+           if n2=0 then raise (RunError ("modulo by 0",p))
+           else VAL [n1 mod n2]
+         | _ -> raise (RunError ("illegal arg to mod",p)))
+      | Syntax.D (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL [n]   ->
+           if n<=0 then raise (RunError ("Arg to d or D most be >0",p))
+           else VAL [rand n]
+         | _ -> raise (RunError ("illegal arg to d or D",p)))
+      | Syntax.Z (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL [n]   ->
+           if n<0 then raise (RunError ("Arg to z or Z most be >=0",p))
+           else VAL [rand (n+1) - 1]
+         | _ -> raise (RunError ("illegal arg to z or Z",p)))
+      | Syntax.SIGN (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL [n]   -> VAL [sign n]
+         | _ -> raise (RunError ("illegal arg to sgn",p)))
+      | Syntax.SUM (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL v -> VAL [List.fold_left (fun x y ->x + y) 0 v]
+         | _ -> raise (RunError ("illegal arg to sum",p)))
+      | Syntax.COUNT (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL v -> VAL [List.length v]
+         | _ -> raise (RunError ("illegal arg to count",p)))
+      | Syntax.LEAST (e1,e2,p) ->
+        (match (evalExp e1 table,evalExp e2 table) with
+           (VAL [n], VAL l) ->
+           if n<0 then raise (RunError ("Negative arg to least",p))
+           else if List.length l <= n then VAL l
+           else VAL (take n l)
+         | _ -> raise (RunError ("illegal arg to least",p)))
+      | Syntax.LARGEST (e1,e2,p) ->
+        (match (evalExp e1 table,evalExp e2 table) with
+           (VAL [n], VAL l) ->
+           if n<0 then raise (RunError ("Negative arg to largest",p))
+           else if List.length l <= n then VAL l
+           else VAL (drop' ((List.length l)- n) l)
+         | _ -> raise (RunError ("illegal arg to largest",p)))
+      | Syntax.MEDIAN (e1,p) ->
+        (match (evalExp e1 table) with
+           VAL [] -> raise (RunError ("Can't take median of empty collection",p))
+         | VAL vs -> VAL [List.nth vs (List.length vs / 2)]
+         | _ -> raise (RunError  ("Can't take median of text",p)))
+      | Syntax.MINIMAL (e,p) ->
+        (match (evalExp e table) with
+           VAL [] -> VAL []
+         | VAL (a::v) -> let rec g = function
+               [] -> [a]
+             | (b::bs) -> if a=b then b:: g bs else [a]
+           in VAL (g v)
+         | _ -> raise (RunError ("illegal arg to minimal",p)))
+      | Syntax.MAXIMAL (e,p) ->
+        (match (evalExp e table) with
+           VAL [] -> VAL []
+         | VAL (a::v) -> let rec g a b c = match a, b, c with
+               [], x, xs -> x::xs
+             | (b::bs), x, xs ->
+               if b=x then g bs x (b::xs) else g bs b []
+           in VAL (g v a [])
+         | _ -> raise (RunError ("illegal arg to maximal",p)))
+      | Syntax.HASH (e1,e2,p) ->
+        (match (evalExp e1 table) with
+           VAL [n] ->
+           if n<0 then raise (RunError ("Negative arg to #",p))
+           else
+             VAL (List.fold_right
+                    (fun a b -> merge a b)
+                    (tabulate n (fun x ->
+                         match evalExp e2 table with
+                           VAL v -> v
+                         | _ -> raise (RunError ("illegal arg2 to #",p)))) [])
+         | _ -> raise (RunError ("illegal arg1 to #",p)))
+      | Syntax.AND (e1,e2,p) ->
+        (match (evalExp e1 table) with
+           VAL [] -> VAL []
+         | _      -> evalExp e2 table)
+      | Syntax.EQ (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1=x) l)
+         | _ -> raise (RunError ("illegal arg to =",p)))
+      | Syntax.NEQ (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1<>x) l)
+         | _ -> raise (RunError ("illegal arg to =/=",p)))
+      | Syntax.LT (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1<x) l)
+         | _ -> raise (RunError ("illegal arg to <",p)))
+      | Syntax.GT (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1>x) l)
+         | _ -> raise (RunError ("illegal arg to >",p)))
+      | Syntax.LE (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1<=x) l)
+         | _ -> raise (RunError ("illegal arg to <=",p)))
+      | Syntax.GE (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1>=x) l)
+         | _ -> raise (RunError ("illegal arg to >=",p)))
+      | Syntax.FROMTO (e1,e2,p) ->
+        (match (evalExp e1 table, evalExp e2 table) with
+           (VAL [n1], VAL [n2]) -> VAL (tabulate (n2-n1+1) (fun x -> x+n1))
+         | _ -> raise (RunError ("illegal arg to ..",p)))
+      | Syntax.LET (x,e1,e2,p) ->
+        evalExp e2 ((x,evalExp e1 table)::table)
+      | Syntax.ACCUM (x,e1,e2,continue,p) ->
+        (match evalExp e1 table with
+           VAL v ->
+           VAL (List.fold_right (fun a b -> merge a b)
+                  (iterate v x e1 e2 continue table decs p) [])
+         | _ -> raise (RunError ("illegal arg to accumulate",p)))
+      | Syntax.REPEAT (x,e1,e2,continue,p) ->
+        (match evalExp e1 table with
+           VAL v ->
+           VAL (last (iterate v x e1 e2 continue table decs p))
+         | _ -> raise (RunError ("illegal arg to repeat",p)))
+      | Syntax.FOREACH (x,e1,e2,p) ->
+        (match evalExp e1 table with
+           VAL v ->
+           VAL (List.fold_right (fun a b -> merge a b)
+                  (List.map (fun w ->
+                       (match evalExp e2 ((x,VAL [w])::table) with
+                          VAL v1 -> v1
+                        | _ -> raise (RunError ("illegal arg2 to foreach",p))))
+                      v) [])
+         | _ -> raise (RunError ("illegal arg1 to foreach",p)))
+      | Syntax.IF (e1,e2,e3,p) ->
+        (match evalExp e1 table with
+           VAL [] -> evalExp e3 table (* false *)
+         | VAL _ -> evalExp e2 table  (* true *)
+         | _ -> raise (RunError ("illegal arg to if",p)))
+      | Syntax.CALL (f,args,p) ->
+        callFun (f, List.map (fun e -> evalExp e table) args, decs, p)
+      | Syntax.STRING (ss,p) -> TEXT [ss]
+      | Syntax.SAMPLE (e,p) ->
+        makeText (evalExp e table)
+      | Syntax.SAMPLES (e1,e2,p) ->
+        (match (evalExp e1 table) with
+           VAL [n] ->
+           if n<0 then raise (RunError ("Negative arg1 to '",p))
+           else
+             let rec samples = function
+                 0 -> TEXT []
+               | 1 -> makeText (evalExp e2 table)
+               | n -> vconcr (makeText (evalExp e2 table),
+                              samples (n-1))
+             in
+             samples n
+         | _ -> raise (RunError ("illegal arg1 to '",p)))
+      | Syntax.HCONC (e1,e2,p) ->
+        hconc (evalExp e1 table, evalExp e2 table)
+      | Syntax.VCONCL (e1,e2,p) ->
+        vconcl (evalExp e1 table, evalExp e2 table)
+      | Syntax.VCONCR (e1,e2,p) ->
+        vconcr (evalExp e1 table, evalExp e2 table)
+      | Syntax.VCONCC (e1,e2,p) ->
+        vconcc (evalExp e1 table, evalExp e2 table)
+      | Syntax.QUESTION (prob,p) ->
+        if tryFn prob then VAL [1] else VAL []
+      | Syntax.PAIR (e1,e2,p) ->
+        PAIR (evalExp e1 table, evalExp e2 table)
+      | Syntax.FIRST (e1,p) ->
+        (match evalExp e1 table with
+           PAIR (v,w) -> v
+         | _ -> raise (RunError ("Argument to %1 must be a pair\n", p)))
+      | Syntax.SECOND (e1,p) ->
+        (match evalExp e1 table with
+           PAIR (v,w) -> w
+         | _ -> raise (RunError ("Argument to %2 must be a pair\n", p)))
+      | Syntax.DEFAULT (x,e1,p) ->
+        (match lookup x table with
+           Some v -> v
+         | None ->  evalExp e1 table)
+    in
+    evalExp exp table
+
+
+  and iterate v x e1 e2 continue table decs pos =
+    match evalExp0 e2 ((x,VAL v)::table) decs with
+      VAL test ->
+      v::(if not (is_empty test) = continue
+          then
+            (match evalExp0 e1 table decs with
+               VAL v1 -> iterate v1 x e1 e2 continue table decs pos
+             | _ -> raise (RunError ("illegal arg to iterator",pos)))
+          else [])
+    | _ -> raise (RunError ("illegal arg to iterator",pos))
+
+  and callFun (f, vs, decs, p) =
+    match lookup f decs with
+      None -> raise (RunError ("Unknown function: "^f,p))
+    | Some (Syntax.Func(pars, body, pos)) ->
+      let zip a b = match a, b with
+          [], [] -> []
+        | (x::xs), (y::ys) -> (x,y) :: zip xs ys
+        | _, _ -> raise (RunError ("Wrong number of args to "^f,p))
+      in 
+      evalExp0 body (zip pars vs) decs
+    | Some (Syntax.Comp(empty, single, union, pos)) ->
+      (match vs with
+         [VAL v] -> compositional (v, empty, single, union, decs, pos)
+       | _ -> raise (RunError ("Wrong number of args to "^f,p)))
+
+  and compositional = function
+      ([], empty, single, union, decs, p) ->
+      evalExp0 empty [] decs
+    | ((x::xs), empty, single, union, decs, p) ->
+      let v1 = callFun (single, [VAL [x]], decs, p) in
+      let v2 = compositional (xs, empty, single, union, decs, p) in
+      callFun (union, v1::v2::[], decs, p)
+
+  (* text functions *)
+
+  (* converts non-text values into text values *)
+  and makeText = function
+      (VAL v) ->
+      TEXT [concatenate
+              (List.map
+                 (fun n -> if n>=0 then string_of_int n
+                   else "-" ^ string_of_int (~-n))
+                 v)]
+    | (PAIR (v,w)) ->
+      (match (makeText v, makeText w) with
+         (TEXT [s1], TEXT [s2]) -> TEXT ["[" ^ s1 ^ " , " ^ s2 ^ "]"]
+       | (TEXT ss1, TEXT ss2) -> TEXT (["["] @ ss1 @ [" , "] @ ss2 @ [ "]"])
+       | _  -> raise (RunError ("Can not convert to text\n", (0,0))))
+    | text -> text
+
+  and concatenate = function
+      [] -> ""
+    | [x] -> x
+    | (x :: xs) -> x ^ " " ^ concatenate xs
+
+  (* make string of n spaces *)
+  and spaces = function
+    | 0 -> ""
+    | n -> " " ^ spaces (n-1)
+
+  (* Horisontal concatenation (top aligned) *) 
+  and hconc = function
+      (TEXT ss1,TEXT ss2) ->
+      let l1 = String.length (List.hd ss1) in
+      let l2 = String.length (List.hd ss2) in
+      let pad1 = spaces l1 in
+      let pad2 = spaces l2 in
+      let rec hc a b = match a, b with
+          [], [] -> []
+        | [], (s2::ss2) -> (pad1^s2) :: hc [] ss2
+        | (s1::ss1), [] -> (s1^pad2) :: hc ss1 []
+        | (s1::ss1), (s2::ss2) -> (s1^s2) :: hc ss1 ss2
+      in TEXT (hc ss1 ss2)
+    | (v1, v2) -> hconc (makeText v1, makeText v2)
+
+
+  (* left-aligned vertical concatenation *)
+  and vconcl = function
+      (TEXT ss1,TEXT ss2) ->
+      let l1 = String.length (List.hd ss1) in
+      let l2 = String.length (List.hd ss2) in
+      let pad = spaces (abs (l1-l2)) in
+      if l1 = l2 then TEXT (ss1 @ ss2)
+      else if l1<l2 then
+        TEXT (List.map (fun s -> s^pad) ss1 @ ss2)
+      else
+        TEXT (ss1 @ List.map (fun s -> s^pad) ss2)
+    | (v1, v2) -> hconc (makeText v1, makeText v2)
+
+  (* right-aligned vertical concatenation *)
+  and vconcr = function
+      (TEXT ss1,TEXT ss2) ->
+      let l1 = String.length (List.hd ss1) in
+      let l2 = String.length (List.hd ss2) in
+      let pad = spaces (abs (l1-l2)) in
+      if l1 = l2 then TEXT (ss1 @ ss2)
+      else if l1<l2 then
+        TEXT (List.map (fun s -> pad^s) ss1 @ ss2)
+      else
+        TEXT (ss1 @ List.map (fun s -> pad^s) ss2)
+    | (v1, v2) -> hconc (makeText v1, makeText v2)
+
+  (* center-aligned vertical concatenation *)
+  and vconcc = function
+      (TEXT ss1,TEXT ss2) ->
+      let l1 = String.length (List.hd ss1) in
+      let l2 = String.length (List.hd ss2) in
+      let l3 = abs (l1-l2) in
+      let padl = spaces (l3 / 2) in
+      let padr = spaces (l3 - l3 / 2) in
+      if l1 = l2 then TEXT (ss1 @ ss2)
+      else if l1<l2 then
+        TEXT (List.map (fun s -> padl^s^padr) ss1 @ ss2)
+      else
+        TEXT (ss1 @ List.map (fun s -> padl^s^padr) ss2)
+    | (v1, v2) -> hconc (makeText v1, makeText v2)
+
+end
