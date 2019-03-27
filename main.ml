@@ -5,8 +5,6 @@ open Parser
 module Main =
 struct
 
-  exception ParamErr of string
-
   let percent = ref true
 
   let pmax = ref 1.0
@@ -62,14 +60,14 @@ struct
 
   let printVal v = print (stringIVal v ^"\n")
 
-  let rec gtList a b = match a,b with 
+  let rec gtList l1 l2 = match l1, l2 with
     | [], _ -> false
-    | (a::l1), [] -> true
+    | (_::_), [] -> true
     | (a::l1), (b::l2) -> a>b || a=b && gtList l1 l2
 
   let rec printDist1 a b = 
     match (a, b) with
-    | [], pad -> ()
+    | [], _ -> ()
     | ((a,p)::l), pad ->
       let s1 = stringIVal a in
       let s2 = match a with
@@ -106,7 +104,7 @@ struct
     let myAdd3 a b = match a,b with
         m, ((Interpreter.VAL (n::_),p),s) ->
         p*.(abs_float (float_of_int n -. m))+.s
-      | m, (_,s) -> s in
+      | _, (_,s) -> s in
     let maximum x y = if x > y then x else y in
     let maxLen = List.fold_right maximum
         (List.map (fun x -> match x with
@@ -117,7 +115,7 @@ struct
                  (List.map String.length ts) 0
              | (pair,_) -> String.length (stringIVal pair))
             l) 0 in
-    let pad = implode (tabulate (maxLen+5) (fun x -> ' ')) in
+    let pad = implode (tabulate (maxLen+5) (fun _ -> ' ')) in
     let s1 = "Value" in
     let s2 = String.sub pad 0 (String.length pad - String.length s1) in
     let s3 = if !percent
@@ -134,7 +132,7 @@ struct
       | (false,_)    -> " Probability for >   " in
     let mean = (if List.for_all (fun x ->
         (match x with
-           (Interpreter.VAL x, p) -> List.length x <= 1
+           (Interpreter.VAL x, _) -> List.length x <= 1
          | _ -> false)) l
        then
          let m = List.fold_right (fun x y -> myAdd (x, y)) l 0.0 in
@@ -160,12 +158,13 @@ struct
 
   let run filename n defs =
     let lb = createLexerStream
-        (if filename = "" then stdin
-         else open_in filename) in
+        (match filename with
+           Some (filename) -> (open_in filename)
+         | None -> stdin) in
     let dice = 
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
-    let roll = fun n -> printVal (Interpreter.rollDice dice) in
+    let roll = fun _ -> printVal (Interpreter.rollDice dice) in
     List.hd (tabulate n roll)
 
   let errorMess s = print s (* TODO: To stderr? *)
@@ -177,43 +176,16 @@ struct
         | Some (value) -> Some (name,value))
     | _ -> None
 
-  let rec run0 a b c d = match a,b,c,d with
-      [], filename, n, defs -> run filename n defs
-    | (arg::args), filename, n, defs ->
-      match int_of_string_opt arg with
-        None -> (match findDef arg with
-            None ->
-            if arg = "-p"
-            then (percent := not (!percent);
-                  run0 args filename n defs)
-            else if "-g" <= arg && arg < "-h"
-            then (match float_of_string_opt (String.sub arg 0 2 ) with
-                  None -> raise (ParamErr arg)
-                | Some s ->
-                  (graph := s;
-                   run0 args filename n defs))
-            else if arg = "ge" || arg = "le" ||
-                    arg = "gt" || arg = "lt"
-            then (col2 := arg;
-                  run0 args filename n defs)
-            else run0 args arg n defs
-          | Some (name,value) ->
-            run0 args filename n
-              (fun d -> Syntax.Syntax.LET
-                  (name, Syntax.Syntax.NUM (value,(0,0)),
-                   defs d,(0,0))))
-      | Some n -> run0 args filename n defs
-
-  let _ =
-    Random.self_init();
-    let argv = Array.to_list Sys.argv in
+  let main filename count seed =
+    let _ = match seed with
+        Some s -> Random.init s
+      | None -> Random.self_init() in
     try
-      run0 (List.tl argv) "" 1 (fun d -> d)
-    with Parsing.YYexit ob -> errorMess "Parser-exit\n"
+      run filename count (fun d -> d)
+    with Parsing.YYexit _ -> errorMess "Parser-exit\n"
        | Parsing.Parse_error ->
-         let (p1,p2) = (0, 0) in
          let (lin,col)
-           = Lexer.getLineCol p2
+           = Lexer.getLineCol 0
              (!Lexer.currentLine)
              (!Lexer.lineStartPos) in
          errorMess ("Parse-error at line "
@@ -225,6 +197,22 @@ struct
          errorMess ("Runtime error: " ^mess^ " at line "
                     ^ string_of_int lin ^ ", column " ^ string_of_int col)
        | Sys_error s -> errorMess ("Exception: " ^ s)
-       | ParamErr s -> errorMess ("Bad command-line parameter: " ^ s)
+
+  let spec =
+    let open Core.Command.Spec in
+    empty
+    +> anon (maybe ("filename" %: string))
+    +> flag "--times" (optional_with_default 1 int) ~doc:"int Number of rolls"
+    +> flag "--seed" (optional int) ~doc:"int Seed value for dice"
+
+  let command =
+    Core.Command.basic
+      ~summary:"Simulate dice rolling based on a domain-specific syntax"
+      ~readme:(fun () -> "Command-line options")
+      spec
+      (fun filename count seed () -> main filename count seed)
+
+  let _ =
+    Core.Command.run ~version:"0.0.1" command
 end
 
