@@ -40,7 +40,7 @@ struct
     else string_of_float n
 
   let padrealtostring p =
-    let padding = "                 " in 
+    let padding = "                 " in
     let ps = if p < 1000000000000000.0
       then "  0.0"
       else if p<9.999999
@@ -51,7 +51,7 @@ struct
     in
     ps ^ String.sub padding 0 (20-String.length ps)
 
-  let rec stringIVal = function 
+  let rec stringIVal = function
     | Interpreter.VAL l -> stringVal l
     | Interpreter.TEXT ts ->
       String.concat "" (List.map (fun t -> t ^"\n") ts)
@@ -65,7 +65,7 @@ struct
     | (_::_), [] -> true
     | (a::l1), (b::l2) -> a>b || a=b && gtList l1 l2
 
-  let rec printDist1 a b = 
+  let rec printDist1 a b =
     match (a, b) with
     | [], _ -> ()
     | ((a,p)::l), pad ->
@@ -161,7 +161,7 @@ struct
         (match filename with
            Some (filename) -> (open_in filename)
          | None -> stdin) in
-    let dice = 
+    let dice =
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
     let roll = fun _ -> printVal (Interpreter.rollDice dice) in

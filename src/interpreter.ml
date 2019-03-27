@@ -73,7 +73,7 @@ struct
     | a, [] -> false
     | a, (b::l2) -> a = b || member a l2
 
-  let rec drop a b = match a, b with 
+  let rec drop a b = match a, b with
     | [], l2 -> []
     | (a::l1), l2 -> if member a l2 then drop l1 l2 else a :: drop l1 l2
 
@@ -379,7 +379,7 @@ struct
           [], [] -> []
         | (x::xs), (y::ys) -> (x,y) :: zip xs ys
         | _, _ -> raise (RunError ("Wrong number of args to "^f,p))
-      in 
+      in
       evalExp0 body (zip pars vs) decs
     | Some (Syntax.Comp(empty, single, union, pos)) ->
       (match vs with
@@ -421,7 +421,7 @@ struct
     | 0 -> ""
     | n -> " " ^ spaces (n-1)
 
-  (* Horisontal concatenation (top aligned) *) 
+  (* Horisontal concatenation (top aligned) *)
   and hconc = function
       (TEXT ss1,TEXT ss2) ->
       let l1 = String.length (List.hd ss1) in

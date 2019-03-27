@@ -18,7 +18,7 @@ and getLineCol p l s = match p, l, s with
 
 exception LexicalError of string * (int * int) (* (message, (line, column)) *)
 
-let lexerError lexbuf s = 
+let lexerError lexbuf s =
     raise (LexicalError (s, getPos lexbuf))
 
 let keyword (s, pos) =

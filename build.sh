@@ -1,3 +1,3 @@
 #!/bin/bash 
-corebuild main.native
+corebuild src/main.native
 mv main.native troll

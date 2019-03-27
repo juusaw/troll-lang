@@ -44,7 +44,7 @@ sig
     Syntax.Syntax.pos -> value
   val compositional :
     int list * Syntax.Syntax.exp * string * string *
-    (string * Syntax.Syntax.declaration) list * Syntax.Syntax.pos -> 
+    (string * Syntax.Syntax.declaration) list * Syntax.Syntax.pos ->
     value
   val makeText : value -> value
   val concatenate : string list -> string
