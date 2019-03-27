@@ -8,7 +8,7 @@ This project is based on the original implementation of Troll in Standard ML (Mo
 
 ## Building the project
 
-The project can be compiled using standard OCaml tools (`ocamlc`, `ocamllex`, `ocamlyacc`) available in the official OCaml distributions.
+In addition to the standard OCaml tools (`ocamlc`, `ocamllex`, `ocamlyacc`) available in the official OCaml distributionst he project uses `Core` library and `corebuild` for compiling.
 
 Run the command `./build.sh` to generate the binary.
 
