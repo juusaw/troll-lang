@@ -178,39 +178,12 @@ struct
         | Some (value) -> Some (name,value))
     | _ -> None
 
-  let rec run0 a b c d = match a,b,c,d with
-      [], filename, n, defs -> run filename n defs
-    | (arg::args), filename, n, defs ->
-      match int_of_string_opt arg with
-        None -> (match findDef arg with
-            None ->
-            if arg = "-p"
-            then (percent := not (!percent);
-                  run0 args filename n defs)
-            else if "-g" <= arg && arg < "-h"
-            then (match float_of_string_opt (String.sub arg 0 2 ) with
-                  None -> raise (ParamErr arg)
-                | Some s ->
-                  (graph := s;
-                   run0 args filename n defs))
-            else if arg = "ge" || arg = "le" ||
-                    arg = "gt" || arg = "lt"
-            then (col2 := arg;
-                  run0 args filename n defs)
-            else run0 args (Some arg) n defs
-          | Some (name,value) ->
-            run0 args filename n
-              (fun d -> Syntax.Syntax.LET
-                  (name, Syntax.Syntax.NUM (value,(0,0)),
-                   defs d,(0,0))))
-      | Some n -> run0 args filename n defs
-
-  let main filename seed =
+  let main filename count seed =
     let _ = match seed with
         Some s -> Random.init s
       | None -> Random.self_init() in
     try
-      run0 [] filename 1 (fun d -> d)
+      run filename count (fun d -> d)
     with Parsing.YYexit ob -> errorMess "Parser-exit\n"
        | Parsing.Parse_error ->
          let (p1,p2) = (0, 0) in
@@ -233,6 +206,7 @@ struct
     let open Core.Command.Spec in
     empty
     +> anon (maybe ("filename" %: string))
+    +> flag "--times" (optional_with_default 1 int) ~doc:"int Number of rolls"
     +> flag "--seed" (optional int) ~doc:"int Seed value for dice"
 
   let command =
@@ -240,7 +214,7 @@ struct
       ~summary:"Simulate dice rolling based on a domain-specific syntax"
       ~readme:(fun () -> "Command-line options")
       spec
-      (fun filename seed () -> main filename seed)
+      (fun filename count seed () -> main filename count seed)
 
   let _ =
     Core.Command.run ~version:"0.0.1" command
