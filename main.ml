@@ -160,8 +160,9 @@ struct
 
   let run filename n defs =
     let lb = createLexerStream
-        (if filename = "" then stdin
-         else open_in filename) in
+        (match filename with
+           Some (filename) -> (open_in filename)
+         | None -> stdin) in
     let dice = 
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
@@ -196,7 +197,7 @@ struct
                     arg = "gt" || arg = "lt"
             then (col2 := arg;
                   run0 args filename n defs)
-            else run0 args arg n defs
+            else run0 args (Some arg) n defs
           | Some (name,value) ->
             run0 args filename n
               (fun d -> Syntax.Syntax.LET
@@ -227,7 +228,7 @@ struct
   let spec =
     let open Core.Command.Spec in
     empty
-    +> anon ("filename" %: string)
+    +> anon (maybe ("filename" %: string))
 
   let command =
     Core.Command.basic
