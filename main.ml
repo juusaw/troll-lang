@@ -5,8 +5,6 @@ open Parser
 module Main =
 struct
 
-  exception ParamErr of string
-
   let percent = ref true
 
   let pmax = ref 1.0
@@ -200,7 +198,6 @@ struct
          errorMess ("Runtime error: " ^mess^ " at line "
                     ^ string_of_int lin ^ ", column " ^ string_of_int col)
        | Sys_error s -> errorMess ("Exception: " ^ s)
-       | ParamErr s -> errorMess ("Bad command-line parameter: " ^ s)
 
   let spec =
     let open Core.Command.Spec in
