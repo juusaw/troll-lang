@@ -60,14 +60,14 @@ struct
 
   let printVal v = print (stringIVal v ^"\n")
 
-  let rec gtList a b = match a,b with 
+  let rec gtList l1 l2 = match l1, l2 with
     | [], _ -> false
-    | (a::l1), [] -> true
+    | (_::_), [] -> true
     | (a::l1), (b::l2) -> a>b || a=b && gtList l1 l2
 
   let rec printDist1 a b = 
     match (a, b) with
-    | [], pad -> ()
+    | [], _ -> ()
     | ((a,p)::l), pad ->
       let s1 = stringIVal a in
       let s2 = match a with
@@ -104,7 +104,7 @@ struct
     let myAdd3 a b = match a,b with
         m, ((Interpreter.VAL (n::_),p),s) ->
         p*.(abs_float (float_of_int n -. m))+.s
-      | m, (_,s) -> s in
+      | _, (_,s) -> s in
     let maximum x y = if x > y then x else y in
     let maxLen = List.fold_right maximum
         (List.map (fun x -> match x with
@@ -115,7 +115,7 @@ struct
                  (List.map String.length ts) 0
              | (pair,_) -> String.length (stringIVal pair))
             l) 0 in
-    let pad = implode (tabulate (maxLen+5) (fun x -> ' ')) in
+    let pad = implode (tabulate (maxLen+5) (fun _ -> ' ')) in
     let s1 = "Value" in
     let s2 = String.sub pad 0 (String.length pad - String.length s1) in
     let s3 = if !percent
@@ -132,7 +132,7 @@ struct
       | (false,_)    -> " Probability for >   " in
     let mean = (if List.for_all (fun x ->
         (match x with
-           (Interpreter.VAL x, p) -> List.length x <= 1
+           (Interpreter.VAL x, _) -> List.length x <= 1
          | _ -> false)) l
        then
          let m = List.fold_right (fun x y -> myAdd (x, y)) l 0.0 in
@@ -164,7 +164,7 @@ struct
     let dice = 
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
-    let roll = fun n -> printVal (Interpreter.rollDice dice) in
+    let roll = fun _ -> printVal (Interpreter.rollDice dice) in
     List.hd (tabulate n roll)
 
   let errorMess s = print s (* TODO: To stderr? *)
@@ -182,11 +182,10 @@ struct
       | None -> Random.self_init() in
     try
       run filename count (fun d -> d)
-    with Parsing.YYexit ob -> errorMess "Parser-exit\n"
+    with Parsing.YYexit _ -> errorMess "Parser-exit\n"
        | Parsing.Parse_error ->
-         let (p1,p2) = (0, 0) in
          let (lin,col)
-           = Lexer.getLineCol p2
+           = Lexer.getLineCol 0
              (!Lexer.currentLine)
              (!Lexer.lineStartPos) in
          errorMess ("Parse-error at line "
