@@ -205,7 +205,11 @@ struct
                    defs d,(0,0))))
       | Some n -> run0 args filename n defs
 
-  let main filename = try
+  let main filename seed =
+    let _ = match seed with
+        Some s -> Random.init s
+      | None -> Random.self_init() in
+    try
       run0 [] filename 1 (fun d -> d)
     with Parsing.YYexit ob -> errorMess "Parser-exit\n"
        | Parsing.Parse_error ->
@@ -229,16 +233,16 @@ struct
     let open Core.Command.Spec in
     empty
     +> anon (maybe ("filename" %: string))
+    +> flag "--seed" (optional int) ~doc:"int Seed value for dice"
 
   let command =
     Core.Command.basic
       ~summary:"Simulate dice rolling based on a domain-specific syntax"
       ~readme:(fun () -> "Command-line options")
       spec
-      (fun filename () -> main filename)
+      (fun filename seed () -> main filename seed)
 
   let _ =
-    Random.self_init();
     Core.Command.run ~version:"0.0.1" command
 end
 
