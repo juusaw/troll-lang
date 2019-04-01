@@ -177,13 +177,13 @@ struct
     | _ -> None
 
   let main filename count seed =
-    let _ = match seed with
+    let () = match seed with
         Some s -> Random.init s
-      | None -> Random.self_init() in
+      | None -> Random.self_init () in
     try
       run filename count (fun d -> d)
     with Parsing.YYexit _ -> errorMess "Parser-exit\n"
-       | Parsing.Parse_error ->
+       | Parser.Error ->
          let (lin,col)
            = Lexer.getLineCol 0
              (!Lexer.currentLine)
@@ -212,7 +212,7 @@ struct
       spec
       (fun filename count seed () -> main filename count seed)
 
-  let _ =
+  let () =
     Core.Command.run ~version:"0.0.1" command
 end
 

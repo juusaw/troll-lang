@@ -12,8 +12,8 @@ let rec getPos lexbuf = getLineCol (lexeme_start lexbuf)
 and getLineCol p l s = match p, l, s with
   pos, line, (p1::ps) ->
       if pos>=p1 then (line, pos-p1)
-      else getLineCol pos (line-1) ps
-  | p, l, [] -> (0,0) (* should not happen *)
+      else getLineCol pos (line - 1) ps
+  | _, _, [] -> (0,0) (* should not happen *)
 
 
 exception LexicalError of string * (int * int) (* (message, (line, column)) *)
