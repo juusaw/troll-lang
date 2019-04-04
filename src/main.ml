@@ -26,16 +26,12 @@ struct
   let implode l = String.concat ~sep:"" (List.map ~f:(fun x -> String.make 1 x) l)
 
   let rec stringVal l =
-    concatenate
+    String.concat
+      ~sep:" "
       (List.map
          ~f:(fun n -> if n>=0 then string_of_int n
               else "-" ^ string_of_int (~-n))
          l)
-
-  and concatenate = function
-    | [] -> ""
-    | [x] -> x
-    | (x :: xs) -> x ^ " " ^ concatenate xs
 
   let realtostring n = if n<0.0 then "-" ^ string_of_float (~-.n)
     else string_of_float n
