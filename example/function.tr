@@ -1,0 +1,5 @@
+function product(v) =
+  if v then (min v) * call product(largest ((count v) - 1) v)
+  else 1
+
+call product(3d20)

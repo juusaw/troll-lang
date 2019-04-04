@@ -1,0 +1,7 @@
+function id(x) = x
+
+function prod(x, y) = x * y
+
+compositional product(1, id, prod)
+
+call product(2d20)
