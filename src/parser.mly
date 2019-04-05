@@ -1,5 +1,7 @@
 %{
 
+open Core
+
 module S = Syntax
 
 let p0 = (0,0)
@@ -22,7 +24,7 @@ let makeBinaryFunction (name, constr) =
 
 let predef =
   List.map
-    makeUnaryFunction
+    ~f:makeUnaryFunction
     [("-", (fun (x, y) -> S.Syntax.UMINUS (x, y)));
       ("d", (fun (x, y) -> S.Syntax.D (x, y)));
       ("z", (fun (x, y) -> S.Syntax.Z (x, y)));
@@ -37,7 +39,7 @@ let predef =
       ("different", (fun (x, y) -> S.Syntax.DIFFERENT (x, y))) ]
   @
   List.map
-    makeBinaryFunction
+    ~f:makeBinaryFunction
     [("+", (fun (x, y, z) -> S.Syntax.PLUS (x, y, z)));
       ("*", (fun (x, y, z) -> S.Syntax.TIMES (x, y, z)));
       ("U", (fun (x, y, z) -> S.Syntax.CONC (x, y, z)))]
