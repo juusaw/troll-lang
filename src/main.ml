@@ -25,15 +25,15 @@ struct
 
   let implode l = String.concat ~sep:"" (List.map ~f:(fun x -> String.make 1 x) l)
 
-  let rec stringVal l =
+  let stringVal l =
     String.concat
       ~sep:" "
       (List.map
-         ~f:(fun n -> if n>=0 then string_of_int n
+         ~f:(fun n -> if n >= 0 then string_of_int n
               else "-" ^ string_of_int (~-n))
          l)
 
-  let realtostring n = if n<0.0 then "-" ^ string_of_float (~-.n)
+  let realtostring n = if n < 0.0 then "-" ^ string_of_float (~-.n)
     else string_of_float n
 
   let padrealtostring p =
@@ -46,7 +46,7 @@ struct
       then " "^realtostring p
       else realtostring p
     in
-    ps ^ String.sub padding 0 (20-String.length ps)
+    ps ^ String.sub padding ~pos:0 ~len:(20-String.length ps)
 
   let rec stringIVal = function
     | Interpreter.VAL l -> stringVal l
@@ -69,7 +69,7 @@ struct
       let s1 = stringIVal a in
       let s2 = match a with
           Interpreter.VAL _ ->
-          String.sub pad 0 (String.length pad - String.length s1)
+          String.sub pad ~pos:0 ~len:(String.length pad - String.length s1)
         | _ -> "" in
       let s2' = match a with
           Interpreter.VAL _ -> ""
@@ -115,7 +115,7 @@ struct
            l) ~init:0 in
     let pad = implode (tabulate (maxLen+5) (fun _ -> ' ')) in
     let s1 = "Value" in
-    let s2 = String.sub pad 0 (String.length pad - String.length s1) in
+    let s2 = String.sub pad ~pos:0 ~len:(String.length pad - String.length s1) in
     let s3 = if !percent
       then "    % =              "
       else "  Probability for =  " in
