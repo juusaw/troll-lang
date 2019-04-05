@@ -21,7 +21,7 @@ struct
 
   let tupleSnd x = let _, y = x in y
 
-  let tabulate n f =  List.init n ~f:(fun x -> f(x + 1))
+  let times n f =  List.init n ~f:(fun _ -> f())
 
   let implode l = String.concat ~sep:"" (List.map ~f:(fun x -> String.make 1 x) l)
 
@@ -113,7 +113,7 @@ struct
                    (List.map ~f:String.length ts) ~init:0
                | (pair,_) -> String.length (stringIVal pair))
            l) ~init:0 in
-    let pad = implode (tabulate (maxLen+5) (fun _ -> ' ')) in
+    let pad = implode (times (maxLen+5) (fun _ -> ' ')) in
     let s1 = "Value" in
     let s2 = String.sub pad ~pos:0 ~len:(String.length pad - String.length s1) in
     let s3 = if !percent
@@ -163,7 +163,7 @@ struct
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
     let roll = fun _ -> printVal (Interpreter.rollDice dice) in
-    List.hd (tabulate n roll)
+    List.hd (times n roll)
 
   let errorMess s = print s (* TODO: To stderr? *)
 
