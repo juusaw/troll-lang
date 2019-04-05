@@ -16,12 +16,6 @@ struct
     | 0 -> 0
     | _ -> (n / abs(n))
 
-  let rec take k xs = match k with
-    | 0 -> []
-    | k -> match xs with
-      | [] -> failwith "take"
-      | y::ys -> y :: (take (k - 1) ys)
-
   let rec drop' n h =
     if Int.equal n 0
     then h
@@ -29,11 +23,6 @@ struct
             (match h with
                _::b -> b
              | [] -> failwith "drop"))
-
-  let rec last = function
-      x::[] -> x
-    | _::xs -> last xs
-    | [] -> failwith "last"
 
   let is_empty = function
       [] -> true
@@ -212,7 +201,7 @@ struct
            (VAL [n], VAL l) ->
            if n<0 then raise (RunError ("Negative arg to least", p))
            else if List.length l <= n then VAL l
-           else VAL (take n l)
+           else VAL (List.take l n)
          | _ -> raise (RunError ("illegal arg to least", p)))
       | Syntax.LARGEST (e1,e2, p) ->
         (match (evalExp e1 table,evalExp e2 table) with
@@ -298,7 +287,7 @@ struct
       | Syntax.REPEAT (x,e1,e2,continue,p) ->
         (match evalExp e1 table with
            VAL v ->
-           VAL (last (iterate v x e1 e2 continue table decs p))
+           VAL (List.last_exn (iterate v x e1 e2 continue table decs p))
          | _ -> raise (RunError ("illegal arg to repeat",p)))
       | Syntax.FOREACH (x,e1,e2,p) ->
         (match evalExp e1 table with

@@ -21,7 +21,7 @@ struct
 
   let tupleSnd x = let _, y = x in y
 
-  let tabulate n f =  List.init n (fun x -> f(x + 1))
+  let tabulate n f =  List.init n ~f:(fun x -> f(x + 1))
 
   let implode l = String.concat ~sep:"" (List.map ~f:(fun x -> String.make 1 x) l)
 
