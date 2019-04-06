@@ -1,3 +1,4 @@
+open Core
 open Syntax
 
 module Interpreter =
@@ -15,33 +16,17 @@ struct
     | 0 -> 0
     | _ -> (n / abs(n))
 
-  let rec take k xs = match k with
-    | 0 -> []
-    | k -> match xs with
-      | [] -> failwith "take"
-      | y::ys -> y :: (take (k - 1) ys)
-
   let rec drop' n h =
-    if n == 0
+    if Int.equal n 0
     then h
     else (drop' (n-1)
             (match h with
                _::b -> b
              | [] -> failwith "drop"))
 
-  let rec last = function
-      x::[] -> x
-    | _::xs -> last xs
-    | [] -> failwith "last"
-
   let is_empty = function
       [] -> true
     | _ -> false
-
-  let rec zip lst1 lst2 = match lst1,lst2 with
-    | [],_ -> []
-    | _, []-> []
-    | (x::xs),(y::ys) -> (x,y) :: (zip xs ys)
 
   let tabulate n f =  List.init n (fun x -> f(x + 1))
 
@@ -52,7 +37,7 @@ struct
   and tryFn' p n = (* scale p until integral *)
     if n=0 then true
     else
-      let p1 = floor (10.0 *. p) in
+      let p1 = Float.round_down (10.0 *. p) in
       let r = float_of_int (rand 10 - 1)
       in
       if r < p1 then true
@@ -136,7 +121,7 @@ struct
       | Syntax.CHOOSE (e1, p) ->
         (match (evalExp e1 table) with
            VAL [] -> raise (RunError ("Arg to choose most be non-empty", p))
-         | VAL ns -> VAL [List.nth ns (rand (List.length ns) - 1)]
+         | VAL ns -> VAL [List.nth_exn ns (rand (List.length ns) - 1)]
          | _  -> raise (RunError ("Arg to choose must be a collection", p)))
       | Syntax.PICK (e1,e2, p) ->
         (match (evalExp e1 table, evalExp e2 table) with
@@ -200,7 +185,7 @@ struct
          | _ -> raise (RunError ("illegal arg to sgn", p)))
       | Syntax.SUM (e1, p) ->
         (match (evalExp e1 table) with
-           VAL v -> VAL [List.fold_left (fun x y ->x + y) 0 v]
+           VAL v -> VAL [List.fold_left ~f:(fun x y ->x + y) ~init:0 v]
          | _ -> raise (RunError ("illegal arg to sum", p)))
       | Syntax.COUNT (e1, p) ->
         (match (evalExp e1 table) with
@@ -211,7 +196,7 @@ struct
            (VAL [n], VAL l) ->
            if n<0 then raise (RunError ("Negative arg to least", p))
            else if List.length l <= n then VAL l
-           else VAL (take n l)
+           else VAL (List.take l n)
          | _ -> raise (RunError ("illegal arg to least", p)))
       | Syntax.LARGEST (e1,e2, p) ->
         (match (evalExp e1 table,evalExp e2 table) with
@@ -223,7 +208,7 @@ struct
       | Syntax.MEDIAN (e1, p) ->
         (match (evalExp e1 table) with
            VAL [] -> raise (RunError ("Can't take median of empty collection", p))
-         | VAL vs -> VAL [List.nth vs (List.length vs / 2)]
+         | VAL vs -> VAL [List.nth_exn vs (List.length vs / 2)]
          | _ -> raise (RunError  ("Can't take median of text", p)))
       | Syntax.MINIMAL (e, p) ->
         (match (evalExp e table) with
@@ -248,11 +233,11 @@ struct
            if n<0 then raise (RunError ("Negative arg to #", p))
            else
              VAL (List.fold_right
-                    (fun a b -> merge a b)
+                    ~f:(fun a b -> merge a b)
                     (tabulate n (fun _ ->
                          match evalExp e2 table with
                            VAL v -> v
-                         | _ -> raise (RunError ("illegal arg2 to #",p)))) [])
+                         | _ -> raise (RunError ("illegal arg2 to #",p)))) ~init:[])
          | _ -> raise (RunError ("illegal arg1 to #",p)))
       | Syntax.AND (e1, e2, _) ->
         (match (evalExp e1 table) with
@@ -260,27 +245,27 @@ struct
          | _      -> evalExp e2 table)
       | Syntax.EQ (e1,e2,p) ->
         (match (evalExp e1 table, evalExp e2 table) with
-           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1=x) l)
+           (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1=x) l)
          | _ -> raise (RunError ("illegal arg to =",p)))
       | Syntax.NEQ (e1,e2,p) ->
         (match (evalExp e1 table, evalExp e2 table) with
-           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1<>x) l)
+           (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1<>x) l)
          | _ -> raise (RunError ("illegal arg to =/=",p)))
       | Syntax.LT (e1,e2,p) ->
         (match (evalExp e1 table, evalExp e2 table) with
-           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1<x) l)
+           (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1<x) l)
          | _ -> raise (RunError ("illegal arg to <",p)))
       | Syntax.GT (e1,e2,p) ->
         (match (evalExp e1 table, evalExp e2 table) with
-           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1>x) l)
+           (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1>x) l)
          | _ -> raise (RunError ("illegal arg to >",p)))
       | Syntax.LE (e1,e2,p) ->
         (match (evalExp e1 table, evalExp e2 table) with
-           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1<=x) l)
+           (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1<=x) l)
          | _ -> raise (RunError ("illegal arg to <=",p)))
       | Syntax.GE (e1,e2,p) ->
         (match (evalExp e1 table, evalExp e2 table) with
-           (VAL [n1], VAL l) -> VAL (List.filter (fun x -> n1>=x) l)
+           (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1>=x) l)
          | _ -> raise (RunError ("illegal arg to >=",p)))
       | Syntax.FROMTO (e1,e2,p) ->
         (match (evalExp e1 table, evalExp e2 table) with
@@ -291,23 +276,23 @@ struct
       | Syntax.ACCUM (x,e1,e2,continue,p) ->
         (match evalExp e1 table with
            VAL v ->
-           VAL (List.fold_right (fun a b -> merge a b)
-                  (iterate v x e1 e2 continue table decs p) [])
+           VAL (List.fold_right ~f:(fun a b -> merge a b)
+                  (iterate v x e1 e2 continue table decs p) ~init:[])
          | _ -> raise (RunError ("illegal arg to accumulate",p)))
       | Syntax.REPEAT (x,e1,e2,continue,p) ->
         (match evalExp e1 table with
            VAL v ->
-           VAL (last (iterate v x e1 e2 continue table decs p))
+           VAL (List.last_exn (iterate v x e1 e2 continue table decs p))
          | _ -> raise (RunError ("illegal arg to repeat",p)))
       | Syntax.FOREACH (x,e1,e2,p) ->
         (match evalExp e1 table with
            VAL v ->
-           VAL (List.fold_right (fun a b -> merge a b)
-                  (List.map (fun w ->
+           VAL (List.fold_right ~f:(fun a b -> merge a b)
+                  (List.map ~f:(fun w ->
                        (match evalExp e2 ((x,VAL [w])::table) with
                           VAL v1 -> v1
                         | _ -> raise (RunError ("illegal arg2 to foreach",p))))
-                      v) [])
+                      v) ~init:[])
          | _ -> raise (RunError ("illegal arg1 to foreach",p)))
       | Syntax.IF (e1,e2,e3,p) ->
         (match evalExp e1 table with
@@ -315,7 +300,7 @@ struct
          | VAL _ -> evalExp e2 table  (* true *)
          | _ -> raise (RunError ("illegal arg to if",p)))
       | Syntax.CALL (f,args,p) ->
-        callFun (f, List.map (fun e -> evalExp e table) args, decs, p)
+        callFun (f, List.map ~f:(fun e -> evalExp e table) args, decs, p)
       | Syntax.STRING (s, _) -> TEXT [s]
       | Syntax.SAMPLE (e, _) ->
         makeText (evalExp e table)
@@ -375,12 +360,7 @@ struct
     match lookup f decs with
       None -> raise (RunError ("Unknown function: "^f,p))
     | Some (Syntax.Func(pars, body, _)) ->
-      let zip a b = match a, b with
-          [], [] -> []
-        | (x::xs), (y::ys) -> (x,y) :: zip xs ys
-        | _, _ -> raise (RunError ("Wrong number of args to "^f,p))
-      in
-      evalExp0 body (zip pars vs) decs
+      evalExp0 body (List.zip_exn pars vs) decs
     | Some (Syntax.Comp(empty, single, union, pos)) ->
       (match vs with
          [VAL v] -> compositional (v, empty, single, union, decs, pos)
@@ -401,8 +381,8 @@ struct
       (VAL v) ->
       TEXT [concatenate
               (List.map
-                 (fun n -> if n>=0 then string_of_int n
-                   else "-" ^ string_of_int (~-n))
+                 ~f:(fun n -> if n>=0 then string_of_int n
+                      else "-" ^ string_of_int (~-n))
                  v)]
     | (PAIR (v,w)) ->
       (match (makeText v, makeText w) with
@@ -424,8 +404,8 @@ struct
   (* Horisontal concatenation (top aligned) *)
   and hconc = function
       (TEXT ss1,TEXT ss2) ->
-      let l1 = String.length (List.hd ss1) in
-      let l2 = String.length (List.hd ss2) in
+      let l1 = String.length (List.hd_exn ss1) in
+      let l2 = String.length (List.hd_exn ss2) in
       let pad1 = spaces l1 in
       let pad2 = spaces l2 in
       let rec hc a b = match a, b with
@@ -440,42 +420,42 @@ struct
   (* left-aligned vertical concatenation *)
   and vconcl = function
       (TEXT ss1,TEXT ss2) ->
-      let l1 = String.length (List.hd ss1) in
-      let l2 = String.length (List.hd ss2) in
+      let l1 = String.length (List.hd_exn ss1) in
+      let l2 = String.length (List.hd_exn ss2) in
       let pad = spaces (abs (l1-l2)) in
       if l1 = l2 then TEXT (ss1 @ ss2)
       else if l1<l2 then
-        TEXT (List.map (fun s -> s^pad) ss1 @ ss2)
+        TEXT (List.map ~f:(fun s -> s^pad) ss1 @ ss2)
       else
-        TEXT (ss1 @ List.map (fun s -> s^pad) ss2)
+        TEXT (ss1 @ List.map ~f:(fun s -> s^pad) ss2)
     | (v1, v2) -> hconc (makeText v1, makeText v2)
 
   (* right-aligned vertical concatenation *)
   and vconcr = function
       (TEXT ss1,TEXT ss2) ->
-      let l1 = String.length (List.hd ss1) in
-      let l2 = String.length (List.hd ss2) in
+      let l1 = String.length (List.hd_exn ss1) in
+      let l2 = String.length (List.hd_exn ss2) in
       let pad = spaces (abs (l1-l2)) in
       if l1 = l2 then TEXT (ss1 @ ss2)
       else if l1<l2 then
-        TEXT (List.map (fun s -> pad^s) ss1 @ ss2)
+        TEXT (List.map ~f:(fun s -> pad^s) ss1 @ ss2)
       else
-        TEXT (ss1 @ List.map (fun s -> pad^s) ss2)
+        TEXT (ss1 @ List.map ~f:(fun s -> pad^s) ss2)
     | (v1, v2) -> hconc (makeText v1, makeText v2)
 
   (* center-aligned vertical concatenation *)
   and vconcc = function
       (TEXT ss1,TEXT ss2) ->
-      let l1 = String.length (List.hd ss1) in
-      let l2 = String.length (List.hd ss2) in
+      let l1 = String.length (List.hd_exn ss1) in
+      let l2 = String.length (List.hd_exn ss2) in
       let l3 = abs (l1-l2) in
       let padl = spaces (l3 / 2) in
       let padr = spaces (l3 - l3 / 2) in
       if l1 = l2 then TEXT (ss1 @ ss2)
       else if l1<l2 then
-        TEXT (List.map (fun s -> padl^s^padr) ss1 @ ss2)
+        TEXT (List.map ~f:(fun s -> padl^s^padr) ss1 @ ss2)
       else
-        TEXT (ss1 @ List.map (fun s -> padl^s^padr) ss2)
+        TEXT (ss1 @ List.map ~f:(fun s -> padl^s^padr) ss2)
     | (v1, v2) -> hconc (makeText v1, makeText v2)
 
 end

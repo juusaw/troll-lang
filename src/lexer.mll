@@ -1,5 +1,6 @@
 {
 
+open Core
 open Lexing
 open Parser
 let currentLine = ref 1

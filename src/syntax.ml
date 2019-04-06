@@ -1,3 +1,5 @@
+open Core
+
 module Syntax =
 struct
 
@@ -113,7 +115,7 @@ struct
       "(if " ^ showExp e1 ^ "\nthen " ^ showExp e2 ^ "\nelse " ^ showExp e3 ^ ")"
     | CALL (f, es, _) ->
       "call " ^ f ^ "(" ^
-      String.concat "" (List.map (fun e -> showExp e ^ ",") es) ^ ")"
+      String.concat ~sep:"" (List.map es ~f:(fun e -> showExp e ^ ",")) ^ ")"
     | STRING (s, _) -> "\"" ^ s ^ "\""
     | SAMPLE (e1, _) -> "'( " ^ showExp e1 ^ ")"
     | SAMPLES (e1, e2, _) -> "(" ^ showExp e1 ^ " ' " ^ showExp e2 ^ ")"

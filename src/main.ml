@@ -1,3 +1,4 @@
+open Core
 open Lexing
 open Interpreter
 open Parser
@@ -20,23 +21,19 @@ struct
 
   let tupleSnd x = let _, y = x in y
 
-  let tabulate n f =  List.init n (fun x -> f(x + 1))
+  let times n f =  List.init n ~f:(fun _ -> f())
 
-  let implode l = String.concat "" (List.map (fun x -> String.make 1 x) l)
+  let implode l = String.concat ~sep:"" (List.map ~f:(fun x -> String.make 1 x) l)
 
-  let rec stringVal l =
-    concatenate
+  let stringVal l =
+    String.concat
+      ~sep:" "
       (List.map
-         (fun n -> if n>=0 then string_of_int n
-           else "-" ^ string_of_int (~-n))
+         ~f:(fun n -> if n >= 0 then string_of_int n
+              else "-" ^ string_of_int (~-n))
          l)
 
-  and concatenate = function
-    | [] -> ""
-    | [x] -> x
-    | (x :: xs) -> x ^ " " ^ concatenate xs
-
-  let realtostring n = if n<0.0 then "-" ^ string_of_float (~-.n)
+  let realtostring n = if n < 0.0 then "-" ^ string_of_float (~-.n)
     else string_of_float n
 
   let padrealtostring p =
@@ -49,12 +46,12 @@ struct
       then " "^realtostring p
       else realtostring p
     in
-    ps ^ String.sub padding 0 (20-String.length ps)
+    ps ^ String.sub padding ~pos:0 ~len:(20-String.length ps)
 
   let rec stringIVal = function
     | Interpreter.VAL l -> stringVal l
     | Interpreter.TEXT ts ->
-      String.concat "" (List.map (fun t -> t ^"\n") ts)
+      String.concat ~sep:"" (List.map ~f:(fun t -> t ^"\n") ts)
     | Interpreter.PAIR (v,w) ->
       "[" ^ stringIVal v ^ ", " ^ stringIVal w ^ "]"
 
@@ -72,7 +69,7 @@ struct
       let s1 = stringIVal a in
       let s2 = match a with
           Interpreter.VAL _ ->
-          String.sub pad 0 (String.length pad - String.length s1)
+          String.sub pad ~pos:0 ~len:(String.length pad - String.length s1)
         | _ -> "" in
       let s2' = match a with
           Interpreter.VAL _ -> ""
@@ -80,17 +77,17 @@ struct
       let s3 = padrealtostring p in
       let sumTwo x y = x +. y in
       let pgeq: float = match (!col2) with
-          "ge" -> p +. List.fold_right sumTwo (List.map tupleSnd l) 0.0
-        | "le" -> !pmax -. List.fold_right sumTwo (List.map tupleSnd l) 0.0
-        | "gt" -> List.fold_right sumTwo (List.map tupleSnd l) 0.0
-        | _    -> !pmax -. p -. List.fold_right sumTwo (List.map tupleSnd l) 0.0
+          "ge" -> p +. List.fold_right ~f:sumTwo (List.map ~f:tupleSnd l) ~init:0.0
+        | "le" -> !pmax -. List.fold_right ~f:sumTwo (List.map ~f:tupleSnd l) ~init:0.0
+        | "gt" -> List.fold_right ~f:sumTwo (List.map ~f:tupleSnd l) ~init:0.0
+        | _    -> !pmax -. p -. List.fold_right ~f:sumTwo (List.map ~f:tupleSnd l) ~init:0.0
       in
       let s4 = padrealtostring pgeq in
       let rec bar p = if (!graph)*.p<0.5 then []
         else '|' :: bar (p-.1.0/.(!graph))
       in (if !graph=0.0
           then print (s2 ^ s1 ^ s2' ^ ":  " ^ s3 ^ s4 ^ "\n")
-          else  print (s2 ^ s1 ^ s2' ^ ":  " ^ (String.concat "" (List.map (fun x -> String.make 1 x) (bar p))) ^ "\n");
+          else  print (s2 ^ s1 ^ s2' ^ ":  " ^ (String.concat ~sep:"" (List.map ~f:(fun x -> String.make 1 x) (bar p))) ^ "\n");
           printDist1 l pad)
 
   let printDist l =
@@ -103,21 +100,22 @@ struct
       | (_,s) -> s in
     let myAdd3 a b = match a,b with
         m, ((Interpreter.VAL (n::_),p),s) ->
-        p*.(abs_float (float_of_int n -. m))+.s
+        p*.(Float.abs (float_of_int n -. m))+.s
       | _, (_,s) -> s in
     let maximum x y = if x > y then x else y in
-    let maxLen = List.fold_right maximum
-        (List.map (fun x -> match x with
-               (Interpreter.VAL a,_) ->
-               String.length (stringVal a)
-             | (Interpreter.TEXT ts,_) ->
-               List.fold_right maximum
-                 (List.map String.length ts) 0
-             | (pair,_) -> String.length (stringIVal pair))
-            l) 0 in
-    let pad = implode (tabulate (maxLen+5) (fun _ -> ' ')) in
+    let maxLen = List.fold_right ~f:maximum
+        (List.map
+           ~f:(fun x -> match x with
+                 (Interpreter.VAL a,_) ->
+                 String.length (stringVal a)
+               | (Interpreter.TEXT ts,_) ->
+                 List.fold_right ~f:maximum
+                   (List.map ~f:String.length ts) ~init:0
+               | (pair,_) -> String.length (stringIVal pair))
+           l) ~init:0 in
+    let pad = implode (times (maxLen+5) (fun _ -> ' ')) in
     let s1 = "Value" in
-    let s2 = String.sub pad 0 (String.length pad - String.length s1) in
+    let s2 = String.sub pad ~pos:0 ~len:(String.length pad - String.length s1) in
     let s3 = if !percent
       then "    % =              "
       else "  Probability for =  " in
@@ -130,14 +128,14 @@ struct
       | (false,"lt") -> " Probability for <   "
       | (true,_)     -> "   % >               "
       | (false,_)    -> " Probability for >   " in
-    let mean = (if List.for_all (fun x ->
+    let mean = (if List.for_all ~f:(fun x ->
         (match x with
            (Interpreter.VAL x, _) -> List.length x <= 1
          | _ -> false)) l
        then
-         let m = List.fold_right (fun x y -> myAdd (x, y)) l 0.0 in
-         let m2 = List.fold_right (fun x y -> myAdd2 (x, y)) l 0.0 in
-         let md = List.fold_right (fun x y -> myAdd3 m (x, y)) l 0.0 in
+         let m = List.fold_right ~f:(fun x y -> myAdd (x, y)) l ~init:0.0 in
+         let m2 = List.fold_right ~f:(fun x y -> myAdd2 (x, y)) l ~init:0.0 in
+         let md = List.fold_right ~f:(fun x y -> myAdd3 m (x, y)) l ~init:0.0 in
          Some (m, sqrt(m2-.m*.m), md)
        else None) in
     let s5 = match mean with
@@ -147,7 +145,7 @@ struct
         "    Spread = " ^ realtostring sp ^
         "  Mean deviation = " ^ realtostring md ^ "\n" in
     let l1 = if !percent
-      then (pmax := 100.0; List.map (fun (a,p) -> (a,100.0*.p)) l)
+      then (pmax := 100.0; List.map ~f:(fun (a,p) -> (a,100.0*.p)) l)
       else l
     in
     (if !graph=0.0
@@ -159,18 +157,18 @@ struct
   let run filename n defs =
     let lb = createLexerStream
         (match filename with
-           Some (filename) -> (open_in filename)
-         | None -> stdin) in
+           Some (filename) -> (In_channel.create filename)
+         | None -> In_channel.stdin) in
     let dice =
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
     let roll = fun _ -> printVal (Interpreter.rollDice dice) in
-    List.hd (tabulate n roll)
+    List.hd (times n roll)
 
   let errorMess s = print s (* TODO: To stderr? *)
 
   let findDef str =
-    match String.split_on_char '=' str with
+    match String.split_on_chars ~on:['='] str with
       [name;valString] -> (match int_of_string_opt valString with
           None -> None
         | Some (value) -> Some (name,value))
@@ -181,7 +179,8 @@ struct
         Some s -> Random.init s
       | None -> Random.self_init () in
     try
-      run filename count (fun d -> d)
+      match run filename count (fun d -> d) with
+        _ -> ()
     with Parsing.YYexit _ -> errorMess "Parser-exit\n"
        | Parser.Error ->
          let (lin,col)
@@ -199,20 +198,19 @@ struct
        | Sys_error s -> errorMess ("Exception: " ^ s)
 
   let spec =
-    let open Core.Command.Spec in
+    let open Command.Spec in
     empty
     +> anon (maybe ("filename" %: string))
     +> flag "--times" (optional_with_default 1 int) ~doc:"int Number of rolls"
     +> flag "--seed" (optional int) ~doc:"int Seed value for dice"
 
   let command =
-    Core.Command.basic
+    Command.basic_spec
       ~summary:"Simulate dice rolling based on a domain-specific syntax"
       ~readme:(fun () -> "Command-line options")
       spec
       (fun filename count seed () -> main filename count seed)
 
   let () =
-    Core.Command.run ~version:"0.0.1" command
+    Command.run ~version:"0.0.1" command
 end
-
