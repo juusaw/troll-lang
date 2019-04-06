@@ -198,20 +198,19 @@ struct
        | Sys_error s -> errorMess ("Exception: " ^ s)
 
   let spec =
-    let open Core.Command.Spec in
+    let open Command.Spec in
     empty
     +> anon (maybe ("filename" %: string))
     +> flag "--times" (optional_with_default 1 int) ~doc:"int Number of rolls"
     +> flag "--seed" (optional int) ~doc:"int Seed value for dice"
 
   let command =
-    Core.Command.basic
+    Command.basic_spec
       ~summary:"Simulate dice rolling based on a domain-specific syntax"
       ~readme:(fun () -> "Command-line options")
       spec
       (fun filename count seed () -> main filename count seed)
 
   let () =
-    Core.Command.run ~version:"0.0.1" command
+    Command.run ~version:"0.0.1" command
 end
-
