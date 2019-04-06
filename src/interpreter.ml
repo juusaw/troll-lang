@@ -28,11 +28,6 @@ struct
       [] -> true
     | _ -> false
 
-  let rec zip lst1 lst2 = match lst1,lst2 with
-    | [],_ -> []
-    | _, []-> []
-    | (x::xs),(y::ys) -> (x,y) :: (zip xs ys)
-
   let tabulate n f =  List.init n (fun x -> f(x + 1))
 
   let rand n = 1 + Random.int n
@@ -365,12 +360,7 @@ struct
     match lookup f decs with
       None -> raise (RunError ("Unknown function: "^f,p))
     | Some (Syntax.Func(pars, body, _)) ->
-      let zip a b = match a, b with
-          [], [] -> []
-        | (x::xs), (y::ys) -> (x,y) :: zip xs ys
-        | _, _ -> raise (RunError ("Wrong number of args to "^f,p))
-      in
-      evalExp0 body (zip pars vs) decs
+      evalExp0 body (List.zip_exn pars vs) decs
     | Some (Syntax.Comp(empty, single, union, pos)) ->
       (match vs with
          [VAL v] -> compositional (v, empty, single, union, decs, pos)
