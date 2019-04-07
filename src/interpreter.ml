@@ -28,7 +28,7 @@ struct
       [] -> true
     | _ -> false
 
-  let tabulate n f =  List.init n (fun x -> f(x + 1))
+  let tabulate n f =  List.init n ~f:(fun x -> f(x + 1))
 
   let rand n = 1 + Random.int n
 
