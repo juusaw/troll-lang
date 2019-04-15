@@ -340,6 +340,18 @@ struct
         (match evalExp e1 table depth with
            PAIR (_, w) -> w
          | _ -> raise (RunError ("Argument to %2 must be a pair\n", p)))
+      | Syntax.LOOP (arg_exps, cond_exp, else_exp, params, p) ->
+        let table' = ref table in
+        let b t = match (evalExp cond_exp t depth) with
+          VAL [] -> false
+          | VAL _ -> (*print_string (printVal (snd (List.hd_exn (List.tl_exn t)))); *) true
+          | _ -> raise (RunError ("illegal arg to if", p)) in
+        let () = while b !table' do
+          table' := (List.fold (List.zip_exn params arg_exps) ~init:[] ~f:(fun l e ->
+            let (param, arg) = e in
+            (param, evalExp arg !table' depth)::l)) @ table 
+        done in
+        evalExp else_exp !table' depth
       | Syntax.DEFAULT (x, e1, _) ->
         (match lookup x table with
            Some v -> v
@@ -393,6 +405,10 @@ struct
        | (TEXT ss1, TEXT ss2) -> TEXT (["["] @ ss1 @ [" , "] @ ss2 @ [ "]"])
        | _  -> raise (RunError ("Can not convert to text\n", (0,0))))
     | text -> text
+  
+  and printVal s = match makeText s with
+    TEXT s -> String.concat s ^ " "
+    | _ -> failwith("should not happen")
 
   and concatenate = function
       [] -> ""

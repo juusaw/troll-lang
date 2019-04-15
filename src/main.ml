@@ -6,9 +6,6 @@ open Parser
 module Main =
 struct
 
-  let createLexerStream ( is (* : BasicIO.instream *) ) =
-    Lexing.from_channel is
-
   let print s = Pervasives.print_string s
 
   let times n f =  List.init n ~f:(fun _ -> f())
@@ -31,14 +28,14 @@ struct
   let printVal v = print (stringIVal v ^"\n")
 
   let run filename n defs =
-    let lb = createLexerStream
+    let lb = Lexing.from_channel
         (match filename with
            Some (filename) -> (In_channel.create filename)
          | None -> In_channel.stdin) in
     let dice =
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
-    let roll = fun _ -> printVal (Interpreter.rollDice dice) in
+    let roll = fun _ -> printVal (Interpreter.rollDice (Syntax.Syntax.optimize_tco dice)) in
     List.hd (times n roll)
 
   let errorMess s = print s (* TODO: To stderr? *)

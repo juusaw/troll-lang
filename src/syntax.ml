@@ -57,6 +57,7 @@ struct
            | PAIR of exp * exp * pos
            | FIRST of exp * pos
            | SECOND of exp * pos
+           | LOOP of exp list * exp * exp * string list * pos
            | DEFAULT of string * exp * pos
   and
     declaration = Func of (string list * exp * pos)
@@ -64,68 +65,83 @@ struct
 
   and program = (string * declaration) list * exp
 
-  let rec showExp exp =
+  let rec string_of_exp exp =
     match exp with
       NUM (i, _) -> string_of_int i
     | EMPTY -> "{}"
     | ID (x, _) -> x
-    | CONC (e1, e2, _) -> "{" ^ showExp e1 ^ ", " ^ showExp e2 ^ "}"
-    | FROMTO (e1, e2, _) -> "(" ^ showExp e1 ^ ".." ^ showExp e2 ^ ")"
-    | CHOOSE (e1, _) -> "(choose " ^ showExp e1 ^ ")"
-    | DIFFERENT (e1, _) -> "(different " ^ showExp e1 ^ ")"
-    | PLUS (e1, e2, _) -> "(" ^ showExp e1 ^ "+" ^ showExp e2 ^ ")"
-    | MINUS (e1, e2, _) -> "(" ^ showExp e1 ^ "-" ^ showExp e2 ^ ")"
-    | TIMES (e1, e2, _) -> "(" ^ showExp e1 ^ "*" ^ showExp e2 ^ ")"
-    | DIVIDE (e1, e2, _) -> "(" ^ showExp e1 ^ "/" ^ showExp e2 ^ ")"
-    | MOD (e1, e2, _) -> "(" ^ showExp e1 ^ " mod " ^ showExp e2 ^ ")"
-    | UMINUS (e1, _) -> "(- " ^ showExp e1 ^ ")"
-    | D (e1, _) -> "(D " ^ showExp e1 ^ ")"
-    | Z (e1, _) -> "(Z " ^ showExp e1 ^ ")"
-    | SIGN (e1, _) -> "(sgn " ^ showExp e1 ^ ")"
-    | SUM (e1, _) -> "(sum " ^ showExp e1 ^ ")"
-    | COUNT (e1, _) -> "(count " ^ showExp e1 ^ ")"
-    | LEAST (e1, e2, _) -> "(least " ^ showExp e1 ^ " " ^ showExp e2 ^ ")"
-    | LARGEST (e1, e2, _) -> "(largest " ^ showExp e1 ^ " " ^ showExp e2 ^ ")"
-    | MINIMAL (e1, _) -> "(min " ^ showExp e1 ^ ")"
-    | MAXIMAL (e1, _) -> "(max " ^ showExp e1 ^ ")"
-    | HASH (e1, e2, _) -> "(" ^ showExp e1 ^ " # " ^ showExp e2 ^ ")"
-    | AND (e1, e2, _) -> "(" ^ showExp e1 ^ " & " ^ showExp e2 ^ ")"
-    | EQ (e1, e2, _) -> "(" ^ showExp e1 ^ " = " ^ showExp e2 ^ ")"
-    | NEQ (e1, e2, _) -> "(" ^ showExp e1 ^ " =/= " ^ showExp e2 ^ ")"
-    | LT (e1, e2, _) -> "(" ^ showExp e1 ^ " < " ^ showExp e2 ^ ")"
-    | GT (e1, e2, _) -> "(" ^ showExp e1 ^ " > " ^ showExp e2 ^ ")"
-    | LE (e1, e2, _) -> "(" ^ showExp e1 ^ " <= " ^ showExp e2 ^ ")"
-    | GE (e1, e2, _) -> "(" ^ showExp e1 ^ " >= " ^ showExp e2 ^ ")"
-    | DROP (e1, e2, _) -> "(" ^ showExp e1 ^ " drop " ^ showExp e2 ^ ")"
-    | KEEP (e1, e2, _) -> "(" ^ showExp e1 ^ " keep " ^ showExp e2 ^ ")"
-    | PICK (e1, e2, _) -> "(" ^ showExp e1 ^ " pick " ^ showExp e2 ^ ")"
-    | SETMINUS (e1, e2, _) -> "(" ^ showExp e1 ^ " -- " ^ showExp e2 ^ ")"
-    | MEDIAN (e1, _) -> "(median " ^ showExp e1 ^ ")"
+    | CONC (e1, e2, _) -> "{" ^ string_of_exp e1 ^ ", " ^ string_of_exp e2 ^ "}"
+    | FROMTO (e1, e2, _) -> "(" ^ string_of_exp e1 ^ ".." ^ string_of_exp e2 ^ ")"
+    | CHOOSE (e1, _) -> "(choose " ^ string_of_exp e1 ^ ")"
+    | DIFFERENT (e1, _) -> "(different " ^ string_of_exp e1 ^ ")"
+    | PLUS (e1, e2, _) -> "(" ^ string_of_exp e1 ^ "+" ^ string_of_exp e2 ^ ")"
+    | MINUS (e1, e2, _) -> "(" ^ string_of_exp e1 ^ "-" ^ string_of_exp e2 ^ ")"
+    | TIMES (e1, e2, _) -> "(" ^ string_of_exp e1 ^ "*" ^ string_of_exp e2 ^ ")"
+    | DIVIDE (e1, e2, _) -> "(" ^ string_of_exp e1 ^ "/" ^ string_of_exp e2 ^ ")"
+    | MOD (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " mod " ^ string_of_exp e2 ^ ")"
+    | UMINUS (e1, _) -> "(- " ^ string_of_exp e1 ^ ")"
+    | D (e1, _) -> "(D " ^ string_of_exp e1 ^ ")"
+    | Z (e1, _) -> "(Z " ^ string_of_exp e1 ^ ")"
+    | SIGN (e1, _) -> "(sgn " ^ string_of_exp e1 ^ ")"
+    | SUM (e1, _) -> "(sum " ^ string_of_exp e1 ^ ")"
+    | COUNT (e1, _) -> "(count " ^ string_of_exp e1 ^ ")"
+    | LEAST (e1, e2, _) -> "(least " ^ string_of_exp e1 ^ " " ^ string_of_exp e2 ^ ")"
+    | LARGEST (e1, e2, _) -> "(largest " ^ string_of_exp e1 ^ " " ^ string_of_exp e2 ^ ")"
+    | MINIMAL (e1, _) -> "(min " ^ string_of_exp e1 ^ ")"
+    | MAXIMAL (e1, _) -> "(max " ^ string_of_exp e1 ^ ")"
+    | HASH (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " # " ^ string_of_exp e2 ^ ")"
+    | AND (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " & " ^ string_of_exp e2 ^ ")"
+    | EQ (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " = " ^ string_of_exp e2 ^ ")"
+    | NEQ (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " =/= " ^ string_of_exp e2 ^ ")"
+    | LT (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " < " ^ string_of_exp e2 ^ ")"
+    | GT (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " > " ^ string_of_exp e2 ^ ")"
+    | LE (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " <= " ^ string_of_exp e2 ^ ")"
+    | GE (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " >= " ^ string_of_exp e2 ^ ")"
+    | DROP (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " drop " ^ string_of_exp e2 ^ ")"
+    | KEEP (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " keep " ^ string_of_exp e2 ^ ")"
+    | PICK (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " pick " ^ string_of_exp e2 ^ ")"
+    | SETMINUS (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " -- " ^ string_of_exp e2 ^ ")"
+    | MEDIAN (e1, _) -> "(median " ^ string_of_exp e1 ^ ")"
     | LET (x, e1, e2, _) ->
-      "(" ^ x ^ " := " ^ showExp e1 ^ ";\n" ^ showExp e2 ^ ")"
+      "(" ^ x ^ " := " ^ string_of_exp e1 ^ ";\n" ^ string_of_exp e2 ^ ")"
     | REPEAT (x, e1, e2, b, _) ->
-      "(repeat " ^ x ^ " := " ^ showExp e1 ^
-      (if b then " while " else " until ") ^ showExp e2 ^ ")"
+      "(repeat " ^ x ^ " := " ^ string_of_exp e1 ^
+      (if b then " while " else " until ") ^ string_of_exp e2 ^ ")"
     | ACCUM (x, e1, e2, b, _) ->
-      "(accumulate " ^ x ^ " := " ^ showExp e1 ^
-      (if b then " while " else " until ") ^ showExp e2 ^ ")"
+      "(accumulate " ^ x ^ " := " ^ string_of_exp e1 ^
+      (if b then " while " else " until ") ^ string_of_exp e2 ^ ")"
     | FOREACH (x, e1, e2, _) ->
-      "(foreach " ^ x ^ " in" ^ showExp e1 ^ " do " ^ showExp e2 ^ ")"
+      "(foreach " ^ x ^ " in" ^ string_of_exp e1 ^ " do " ^ string_of_exp e2 ^ ")"
     | IF (e1, e2, e3, _) ->
-      "(if " ^ showExp e1 ^ "\nthen " ^ showExp e2 ^ "\nelse " ^ showExp e3 ^ ")"
+      "(if " ^ string_of_exp e1 ^ "\nthen " ^ string_of_exp e2 ^ "\nelse " ^ string_of_exp e3 ^ ")"
     | CALL (f, es, _) ->
       "call " ^ f ^ "(" ^
-      String.concat ~sep:"" (List.map es ~f:(fun e -> showExp e ^ ",")) ^ ")"
+      String.concat ~sep:"" (List.map es ~f:(fun e -> string_of_exp e ^ ",")) ^ ")"
     | STRING (s, _) -> "\"" ^ s ^ "\""
-    | SAMPLE (e1, _) -> "'( " ^ showExp e1 ^ ")"
-    | SAMPLES (e1, e2, _) -> "(" ^ showExp e1 ^ " ' " ^ showExp e2 ^ ")"
-    | HCONC (e1, e2, _) -> "(" ^ showExp e1 ^ " || " ^ showExp e2 ^ ")"
-    | VCONCL (e1, e2, _) -> "(" ^ showExp e1 ^ " |> " ^ showExp e2 ^ ")"
-    | VCONCR (e1, e2, _) -> "(" ^ showExp e1 ^ " <| " ^ showExp e2 ^ ")"
-    | VCONCC (e1, e2, _) -> "(" ^ showExp e1 ^ " <> " ^ showExp e2 ^ ")"
+    | SAMPLE (e1, _) -> "'( " ^ string_of_exp e1 ^ ")"
+    | SAMPLES (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " ' " ^ string_of_exp e2 ^ ")"
+    | HCONC (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " || " ^ string_of_exp e2 ^ ")"
+    | VCONCL (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " |> " ^ string_of_exp e2 ^ ")"
+    | VCONCR (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " <| " ^ string_of_exp e2 ^ ")"
+    | VCONCC (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " <> " ^ string_of_exp e2 ^ ")"
     | QUESTION (q, _) -> "?" ^ string_of_float q
-    | PAIR (e1, e2, _) -> "[" ^ showExp e1 ^ " , " ^ showExp e2 ^ "]"
-    | FIRST (e1, _) -> "%1( " ^ showExp e1 ^ ")"
-    | SECOND (e1, _) -> "%2( " ^ showExp e1 ^ ")"
-    | DEFAULT (x,e1, _) -> "(" ^ x ^" ~ " ^ showExp e1 ^ ")"
+    | PAIR (e1, e2, _) -> "[" ^ string_of_exp e1 ^ " , " ^ string_of_exp e2 ^ "]"
+    | FIRST (e1, _) -> "%1( " ^ string_of_exp e1 ^ ")"
+    | SECOND (e1, _) -> "%2( " ^ string_of_exp e1 ^ ")"
+    | LOOP (_) -> "Tailrec loop"
+    | DEFAULT (x,e1, _) -> "(" ^ x ^" ~ " ^ string_of_exp e1 ^ ")"
+
+  let string_of_decl = function
+      Func (sl, exp, pos) -> string_of_exp exp
+    | Comp (exp, s1, s2, pos) -> string_of_exp exp
+
+  let optimize_tco (prog: program): program =
+    let decls, e = prog in
+    let decls' = List.map decls ~f:(fun (name, decl) ->
+        match decl with
+          Func (params, IF (condition_exp, CALL (fn_name, arg_exps, _), else_exp, p1), p2) when Int.equal 0 (String.compare name fn_name) ->
+          (name, Func (params, LOOP (arg_exps, condition_exp, else_exp, params, p1), p2))
+        | d -> (name, d)
+      ) in
+    (decls', e)
 end
