@@ -91,10 +91,13 @@ struct
     | x, ((y,v)::table) ->
       if x=y then Some v else lookup x table
 
-  let rec rollDice (decs, dice) = evalExp0 dice [] decs
+  let rec rollDice (decs, dice) = evalExp0 dice [] decs 0
 
-  and evalExp0 exp table decs =
-    let rec evalExp exp table =
+  and evalExp0 exp table decs d =
+    let rec evalExp exp table d =
+      (* TODO: Make max stack size adjustable *)
+      if d > 1000 then raise (RunError ("Max stack size exceeded", (0,0))) else
+      let depth = d + 1 in
       match exp with
         Syntax.NUM (n, _) -> VAL [n]
       | Syntax.ID (x, p) ->
@@ -103,28 +106,28 @@ struct
          | None -> raise (RunError ("unknown variable: "^x, p)))
       | Syntax.EMPTY -> VAL []
       | Syntax.CONC (e1, e2 ,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL v1, VAL v2) -> VAL (merge v1 v2)
          | _ -> raise (RunError ("Args to @ must be collections", p)))
       | Syntax.DROP (e1, e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL v1, VAL v2) -> VAL (drop v1 v2)
          | _ -> raise (RunError ("Args to drop must be collections", p)))
       | Syntax.KEEP (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL v1, VAL v2) -> VAL (keep v1 v2)
          | _ -> raise (RunError ("Args to keep must be collections", p)))
       | Syntax.SETMINUS (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL v1, VAL v2) -> VAL (setminus v1 v2)
          | _ -> raise (RunError ("Args to setminus must be collections", p)))
       | Syntax.CHOOSE (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [] -> raise (RunError ("Arg to choose most be non-empty", p))
          | VAL ns -> VAL [List.nth_exn ns (rand (List.length ns) - 1)]
          | _  -> raise (RunError ("Arg to choose must be a collection", p)))
       | Syntax.PICK (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL ns, VAL [n]) -> VAL (pick n (List.length ns) ns)
          | _ -> raise (RunError ("The first arg to pick must be a collection, and the second a number", p)))
       | Syntax.DIFFERENT (e1, p) ->
@@ -133,85 +136,85 @@ struct
           | (x::xs) ->
             let ys = noDups xs in (drop [x] ys)@ys
         in
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL v -> VAL (noDups v)
          | _ -> raise (RunError ("Arg to different must be a collection", p)))
 
       | Syntax.PLUS (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL [n2]) -> VAL [n1 + n2]
          | _ -> raise (RunError ("illegal arg to +", p)))
       | Syntax.MINUS (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL [n2]) -> VAL [n1-n2]
          | _ -> raise (RunError ("illegal arg to -", p)))
       | Syntax.UMINUS (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [n1] -> VAL [~-n1]
          | _ -> raise (RunError ("illegal arg to -", p)))
       | Syntax.TIMES (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL [n2]) -> VAL [n1*n2]
          | _ -> raise (RunError ("illegal arg to *", p)))
       | Syntax.DIVIDE (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [], VAL [_]) -> VAL [0]
          | (VAL [n1], VAL [n2]) ->
            if n2=0 then raise (RunError ("division by 0", p))
            else VAL [n1 / n2]
          | _ -> raise (RunError ("illegal arg to /", p)))
       | Syntax.MOD (e1,e2, p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [], VAL [_]) -> VAL [0]
          | (VAL [n1], VAL [n2]) ->
            if n2=0 then raise (RunError ("modulo by 0", p))
            else VAL [n1 mod n2]
          | _ -> raise (RunError ("illegal arg to mod", p)))
       | Syntax.D (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [n]   ->
            if n<=0 then raise (RunError ("Arg to d or D most be >0", p))
            else VAL [rand n]
          | _ -> raise (RunError ("illegal arg to d or D", p)))
       | Syntax.Z (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [n]   ->
            if n<0 then raise (RunError ("Arg to z or Z most be >=0", p))
            else VAL [rand (n+1) - 1]
          | _ -> raise (RunError ("illegal arg to z or Z", p)))
       | Syntax.SIGN (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [n]   -> VAL [sign n]
          | _ -> raise (RunError ("illegal arg to sgn", p)))
       | Syntax.SUM (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL v -> VAL [List.fold_left ~f:(fun x y ->x + y) ~init:0 v]
          | _ -> raise (RunError ("illegal arg to sum", p)))
       | Syntax.COUNT (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL v -> VAL [List.length v]
          | _ -> raise (RunError ("illegal arg to count", p)))
       | Syntax.LEAST (e1,e2, p) ->
-        (match (evalExp e1 table,evalExp e2 table) with
+        (match (evalExp e1 table depth,evalExp e2 table depth) with
            (VAL [n], VAL l) ->
            if n<0 then raise (RunError ("Negative arg to least", p))
            else if List.length l <= n then VAL l
            else VAL (List.take l n)
          | _ -> raise (RunError ("illegal arg to least", p)))
       | Syntax.LARGEST (e1,e2, p) ->
-        (match (evalExp e1 table,evalExp e2 table) with
+        (match (evalExp e1 table depth,evalExp e2 table depth) with
            (VAL [n], VAL l) ->
            if n<0 then raise (RunError ("Negative arg to largest", p))
            else if List.length l <= n then VAL l
            else VAL (drop' ((List.length l)- n) l)
          | _ -> raise (RunError ("illegal arg to largest", p)))
       | Syntax.MEDIAN (e1, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [] -> raise (RunError ("Can't take median of empty collection", p))
          | VAL vs -> VAL [List.nth_exn vs (List.length vs / 2)]
          | _ -> raise (RunError  ("Can't take median of text", p)))
       | Syntax.MINIMAL (e, p) ->
-        (match (evalExp e table) with
+        (match (evalExp e table depth) with
            VAL [] -> VAL []
          | VAL (a::v) -> let rec g = function
                [] -> [a]
@@ -219,7 +222,7 @@ struct
            in VAL (g v)
          | _ -> raise (RunError ("illegal arg to minimal", p)))
       | Syntax.MAXIMAL (e, p) ->
-        (match (evalExp e table) with
+        (match (evalExp e table depth) with
            VAL [] -> VAL []
          | VAL (a::v) -> let rec g a b c = match a, b, c with
                [], x, xs -> x::xs
@@ -228,151 +231,151 @@ struct
            in VAL (g v a [])
          | _ -> raise (RunError ("illegal arg to maximal", p)))
       | Syntax.HASH (e1,e2, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [n] ->
            if n<0 then raise (RunError ("Negative arg to #", p))
            else
              VAL (List.fold_right
                     ~f:(fun a b -> merge a b)
                     (tabulate n (fun _ ->
-                         match evalExp e2 table with
+                         match evalExp e2 table depth with
                            VAL v -> v
                          | _ -> raise (RunError ("illegal arg2 to #",p)))) ~init:[])
          | _ -> raise (RunError ("illegal arg1 to #",p)))
       | Syntax.AND (e1, e2, _) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [] -> VAL []
-         | _      -> evalExp e2 table)
+         | _      -> evalExp e2 table depth)
       | Syntax.EQ (e1,e2,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1=x) l)
          | _ -> raise (RunError ("illegal arg to =",p)))
       | Syntax.NEQ (e1,e2,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1<>x) l)
          | _ -> raise (RunError ("illegal arg to =/=",p)))
       | Syntax.LT (e1,e2,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1<x) l)
          | _ -> raise (RunError ("illegal arg to <",p)))
       | Syntax.GT (e1,e2,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1>x) l)
          | _ -> raise (RunError ("illegal arg to >",p)))
       | Syntax.LE (e1,e2,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1<=x) l)
          | _ -> raise (RunError ("illegal arg to <=",p)))
       | Syntax.GE (e1,e2,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL l) -> VAL (List.filter ~f:(fun x -> n1>=x) l)
          | _ -> raise (RunError ("illegal arg to >=",p)))
       | Syntax.FROMTO (e1,e2,p) ->
-        (match (evalExp e1 table, evalExp e2 table) with
+        (match (evalExp e1 table depth, evalExp e2 table depth) with
            (VAL [n1], VAL [n2]) -> VAL (tabulate (n2-n1+1) (fun x -> x+n1))
          | _ -> raise (RunError ("illegal arg to ..",p)))
       | Syntax.LET (x, e1, e2, _) ->
-        evalExp e2 ((x,evalExp e1 table)::table)
+        evalExp e2 ((x,evalExp e1 table depth)::table) depth
       | Syntax.ACCUM (x,e1,e2,continue,p) ->
-        (match evalExp e1 table with
+        (match evalExp e1 table depth with
            VAL v ->
            VAL (List.fold_right ~f:(fun a b -> merge a b)
-                  (iterate v x e1 e2 continue table decs p) ~init:[])
+                  (iterate v x e1 e2 continue table decs p depth) ~init:[])
          | _ -> raise (RunError ("illegal arg to accumulate",p)))
       | Syntax.REPEAT (x,e1,e2,continue,p) ->
-        (match evalExp e1 table with
+        (match evalExp e1 table depth with
            VAL v ->
-           VAL (List.last_exn (iterate v x e1 e2 continue table decs p))
+           VAL (List.last_exn (iterate v x e1 e2 continue table decs p depth))
          | _ -> raise (RunError ("illegal arg to repeat",p)))
       | Syntax.FOREACH (x,e1,e2,p) ->
-        (match evalExp e1 table with
+        (match evalExp e1 table depth with
            VAL v ->
            VAL (List.fold_right ~f:(fun a b -> merge a b)
                   (List.map ~f:(fun w ->
-                       (match evalExp e2 ((x,VAL [w])::table) with
+                       (match evalExp e2 ((x,VAL [w])::table) depth with
                           VAL v1 -> v1
                         | _ -> raise (RunError ("illegal arg2 to foreach",p))))
                       v) ~init:[])
          | _ -> raise (RunError ("illegal arg1 to foreach",p)))
       | Syntax.IF (e1,e2,e3,p) ->
-        (match evalExp e1 table with
-           VAL [] -> evalExp e3 table (* false *)
-         | VAL _ -> evalExp e2 table  (* true *)
+        (match evalExp e1 table depth with
+           VAL [] -> evalExp e3 table depth (* false *)
+         | VAL _ -> evalExp e2 table depth  (* true *)
          | _ -> raise (RunError ("illegal arg to if",p)))
       | Syntax.CALL (f,args,p) ->
-        callFun (f, List.map ~f:(fun e -> evalExp e table) args, decs, p)
+        callFun (f, List.map ~f:(fun e -> evalExp e table depth) args, decs, p, depth)
       | Syntax.STRING (s, _) -> TEXT [s]
       | Syntax.SAMPLE (e, _) ->
-        makeText (evalExp e table)
+        makeText (evalExp e table depth)
       | Syntax.SAMPLES (e1, e2, p) ->
-        (match (evalExp e1 table) with
+        (match (evalExp e1 table depth) with
            VAL [n] ->
            if n<0 then raise (RunError ("Negative arg1 to '", p))
            else
              let rec samples = function
                  0 -> TEXT []
-               | 1 -> makeText (evalExp e2 table)
-               | n -> vconcr (makeText (evalExp e2 table),
+               | 1 -> makeText (evalExp e2 table depth)
+               | n -> vconcr (makeText (evalExp e2 table depth),
                               samples (n-1))
              in
              samples n
          | _ -> raise (RunError ("illegal arg1 to '", p)))
       | Syntax.HCONC (e1, e2, _) ->
-        hconc (evalExp e1 table, evalExp e2 table)
+        hconc (evalExp e1 table depth, evalExp e2 table depth)
       | Syntax.VCONCL (e1, e2, _) ->
-        vconcl (evalExp e1 table, evalExp e2 table)
+        vconcl (evalExp e1 table depth, evalExp e2 table depth)
       | Syntax.VCONCR (e1, e2, _) ->
-        vconcr (evalExp e1 table, evalExp e2 table)
+        vconcr (evalExp e1 table depth, evalExp e2 table depth)
       | Syntax.VCONCC (e1, e2, _) ->
-        vconcc (evalExp e1 table, evalExp e2 table)
+        vconcc (evalExp e1 table depth, evalExp e2 table depth)
       | Syntax.QUESTION (prob, _) ->
         if tryFn prob then VAL [1] else VAL []
       | Syntax.PAIR (e1, e2, _) ->
-        PAIR (evalExp e1 table, evalExp e2 table)
+        PAIR (evalExp e1 table depth, evalExp e2 table depth)
       | Syntax.FIRST (e1, p) ->
-        (match evalExp e1 table with
+        (match evalExp e1 table depth with
            PAIR (v, _) -> v
          | _ -> raise (RunError ("Argument to %1 must be a pair\n", p)))
       | Syntax.SECOND (e1, p) ->
-        (match evalExp e1 table with
+        (match evalExp e1 table depth with
            PAIR (_, w) -> w
          | _ -> raise (RunError ("Argument to %2 must be a pair\n", p)))
       | Syntax.DEFAULT (x, e1, _) ->
         (match lookup x table with
            Some v -> v
-         | None ->  evalExp e1 table)
+         | None ->  evalExp e1 table depth)
     in
-    evalExp exp table
+    evalExp exp table d
 
 
-  and iterate v x e1 e2 continue table decs pos =
-    match evalExp0 e2 ((x,VAL v)::table) decs with
+  and iterate v x e1 e2 continue table decs pos depth =
+    match evalExp0 e2 ((x,VAL v)::table) decs depth with
       VAL test ->
       v::(if not (is_empty test) = continue
           then
-            (match evalExp0 e1 table decs with
-               VAL v1 -> iterate v1 x e1 e2 continue table decs pos
+            (match evalExp0 e1 table decs depth with
+               VAL v1 -> iterate v1 x e1 e2 continue table decs pos depth
              | _ -> raise (RunError ("illegal arg to iterator",pos)))
           else [])
     | _ -> raise (RunError ("illegal arg to iterator",pos))
 
-  and callFun (f, vs, decs, p) =
+  and callFun (f, vs, decs, p, depth) =
     match lookup f decs with
       None -> raise (RunError ("Unknown function: "^f,p))
     | Some (Syntax.Func(pars, body, _)) ->
-      evalExp0 body (List.zip_exn pars vs) decs
+      evalExp0 body (List.zip_exn pars vs) decs depth
     | Some (Syntax.Comp(empty, single, union, pos)) ->
       (match vs with
-         [VAL v] -> compositional (v, empty, single, union, decs, pos)
+         [VAL v] -> compositional (v, empty, single, union, decs, pos, depth)
        | _ -> raise (RunError ("Wrong number of args to "^f,p)))
 
   and compositional = function
-      ([], empty, _, _, decs, _) ->
-      evalExp0 empty [] decs
-    | ((x::xs), empty, single, union, decs, p) ->
-      let v1 = callFun (single, [VAL [x]], decs, p) in
-      let v2 = compositional (xs, empty, single, union, decs, p) in
-      callFun (union, v1::v2::[], decs, p)
+      ([], empty, _, _, decs, _, depth) ->
+      evalExp0 empty [] decs depth
+    | ((x::xs), empty, single, union, decs, p, depth) ->
+      let v1 = callFun (single, [VAL [x]], decs, p, depth) in
+      let v2 = compositional (xs, empty, single, union, decs, p, depth) in
+      callFun (union, v1::v2::[], decs, p, depth)
 
   (* text functions *)
 
