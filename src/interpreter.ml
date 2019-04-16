@@ -344,7 +344,7 @@ struct
         let table' = ref table in
         let b t = match (evalExp cond_exp t depth) with
           VAL [] -> false
-          | VAL _ -> (*print_string (printVal (snd (List.hd_exn (List.tl_exn t)))); *) true
+          | VAL _ -> true
           | _ -> raise (RunError ("illegal arg to if", p)) in
         let () = while b !table' do
           table' := (List.fold (List.zip_exn params arg_exps) ~init:[] ~f:(fun l e ->

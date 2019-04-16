@@ -136,11 +136,15 @@ struct
     | Comp (exp, s1, s2, pos) -> string_of_exp exp
 
   let optimize_tco (prog: program): program =
+    let names_equal s1 s2 = Int.equal 0 (String.compare s1 s2) in
     let decls, e = prog in
     let decls' = List.map decls ~f:(fun (name, decl) ->
         match decl with
-          Func (params, IF (condition_exp, CALL (fn_name, arg_exps, _), else_exp, p1), p2) when Int.equal 0 (String.compare name fn_name) ->
+          Func (params, IF (condition_exp, CALL (fn_name, arg_exps, _), else_exp, p1), p2) when names_equal name fn_name ->
           (name, Func (params, LOOP (arg_exps, condition_exp, else_exp, params, p1), p2))
+        | Func (params, IF (condition_exp, then_exp, CALL (fn_name, arg_exps, _), p1), p2) when names_equal name fn_name ->
+          let inverse_condition = IF (condition_exp, EMPTY, NUM (1, p2), p2) in
+          (name, Func (params, LOOP (arg_exps, inverse_condition, then_exp, params, p1), p2))
         | d -> (name, d)
       ) in
     (decls', e)
