@@ -1,8 +1,10 @@
 %{
 
-open Core
+open Base
 
 module S = Syntax
+
+module Printf = Caml.Printf
 
 let p0 = (0,0)
 
