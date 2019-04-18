@@ -11,7 +11,7 @@ struct
     +> flag "--seed" (optional int) ~doc:"int Seed value for dice"
 
   let get_lex_stream filename =
-    let lb = createLexerStream
+    let lb = Lexing.from_channel
         (match filename with
            Some (filename) -> (In_channel.create filename)
          | None -> In_channel.stdin) in lb
