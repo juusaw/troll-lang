@@ -32,17 +32,17 @@ struct
 
   let rand n = 1 + Random.int n
 
-  (* let rec tryFn p = tryFn' p 30 (* true with probability p *)
+  let rec tryFn p = tryFn' p 30 (* true with probability p *)
 
-     and tryFn' p n = (* scale p until integral *)
-     if n=0 then true
-     else
+  and tryFn' p n = (* scale p until integral *)
+    if n=0 then true
+    else
       let p1 = Float.round_down (10.0 *. p) in
-      let r = float_of_int (rand 10 - 1)
+      let r = Float.of_int (rand 10 - 1)
       in
-      if r < p1 then true
-      else if r > p1 then false
-      else tryFn' (10.0 *. p -. p1) (n-1) *)
+      if Poly.(r < p1) then true
+      else if Poly.(r > p1) then false
+      else tryFn' (10.0 *. p -. p1) (n-1)
 
   let rec merge a b = match a, b with
     | [], l2 -> l2
@@ -328,8 +328,8 @@ struct
           vconcr (evalExp e1 table depth, evalExp e2 table depth)
         | Syntax.VCONCC (e1, e2, _) ->
           vconcc (evalExp e1 table depth, evalExp e2 table depth)
-        (* | Syntax.QUESTION (prob, _) ->
-           if tryFn prob then VAL [1] else VAL [] *)
+        | Syntax.QUESTION (prob, _) ->
+          if tryFn prob then VAL [1] else VAL []
         | Syntax.PAIR (e1, e2, _) ->
           PAIR (evalExp e1 table depth, evalExp e2 table depth)
         | Syntax.FIRST (e1, p) ->
@@ -396,8 +396,8 @@ struct
       (VAL v) ->
       TEXT [concatenate
               (List.map
-                 ~f:(fun n -> if n>=0 then string_of_int n
-                      else "-" ^ string_of_int (~-n))
+                 ~f:(fun n -> if n>=0 then Int.to_string n
+                      else "-" ^ Int.to_string (~-n))
                  v)]
     | (PAIR (v,w)) ->
       (match (makeText v, makeText w) with
