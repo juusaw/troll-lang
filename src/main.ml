@@ -27,11 +27,7 @@ struct
 
   let printVal v = print (stringIVal v ^"\n")
 
-  let run filename n defs =
-    let lb = Lexing.from_channel
-        (match filename with
-           Some (filename) -> (In_channel.create filename)
-         | None -> In_channel.stdin) in
+  let run lb n defs =
     let dice =
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
@@ -47,12 +43,12 @@ struct
         | Some (value) -> Some (name,value))
     | _ -> None
 
-  let main filename count seed =
+  let main source count seed =
     let () = match seed with
         Some s -> Random.init s
       | None -> Random.self_init () in
     try
-      match run filename count (fun d -> d) with
+      match run source count (fun d -> d) with
         _ -> ()
     with Parsing.YYexit _ -> errorMess "Parser-exit\n"
        | Parser.Error ->
