@@ -6,7 +6,7 @@ open Parser
 module Main =
 struct
 
-  let print s = Pervasives.print_string s
+  let print s = Caml.Pervasives.print_string s
 
   let times n f =  List.init n ~f:(fun _ -> f())
 
@@ -14,8 +14,8 @@ struct
     String.concat
       ~sep:" "
       (List.map
-         ~f:(fun n -> if n >= 0 then string_of_int n
-              else "-" ^ string_of_int (~-n))
+         ~f:(fun n -> if n >= 0 then Int.to_string n
+              else "-" ^ Int.to_string (~-n))
          l)
 
   let rec stringIVal = function
@@ -34,11 +34,11 @@ struct
     let roll = fun _ -> printVal (Interpreter.rollDice (Syntax.Syntax.optimize_tco dice)) in
     List.hd (times n roll)
 
-  let errorMess s = print s (* TODO: To stderr? *)
+  let print_error = print (* TODO: To stderr? *)
 
   let findDef str =
     match String.split_on_chars ~on:['='] str with
-      [name;valString] -> (match int_of_string_opt valString with
+      [name;valString] -> (match Caml.int_of_string_opt valString with
           None -> None
         | Some (value) -> Some (name,value))
     | _ -> None
@@ -50,20 +50,20 @@ struct
     try
       match run source count (fun d -> d) with
         _ -> ()
-    with Parsing.YYexit _ -> errorMess "Parser-exit\n"
+    with Caml.Parsing.YYexit _ -> print_error "Parser-exit\n"
        | Parser.Error ->
          let (lin,col)
            = Lexer.getLineCol 0
              (!Lexer.currentLine)
              (!Lexer.lineStartPos) in
-         errorMess ("Parse-error at line "
-                    ^ string_of_int lin ^ ", column " ^ string_of_int col)
+         print_error ("Parse-error at line "
+                      ^ Int.to_string lin ^ ", column " ^ Int.to_string col)
        | Lexer.LexicalError (mess,(lin,col)) ->
-         errorMess ("Lexical error: " ^mess^ " at line "
-                    ^ string_of_int lin ^ ", column " ^ string_of_int col)
+         print_error ("Lexical error: " ^mess^ " at line "
+                      ^ Int.to_string lin ^ ", column " ^ Int.to_string col)
        | Interpreter.RunError (mess,(lin,col)) ->
-         errorMess ("Runtime error: " ^mess^ " at line "
-                    ^ string_of_int lin ^ ", column " ^ string_of_int col)
-       | Sys_error s -> errorMess ("Exception: " ^ s)
+         print_error ("Runtime error: " ^mess^ " at line "
+                      ^ Int.to_string lin ^ ", column " ^ Int.to_string col)
+       | Sys_error s -> print_error ("Exception: " ^ s)
 
 end

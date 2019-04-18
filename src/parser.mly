@@ -6,6 +6,10 @@ module S = Syntax
 
 module Printf = Caml.Printf
 
+module Obj = Caml.Obj
+
+module Pervasives = Caml.Pervasives
+
 let p0 = (0,0)
 
 let fst x = let y, _ = x in y

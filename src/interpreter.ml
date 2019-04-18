@@ -51,7 +51,7 @@ struct
   and merge1 a b c = match a, b, c with
     | a, l1, [] -> a :: l1
     | a, l1, (b::l2) ->
-      if a<=b then a :: merge1 b l2 l1
+      if a <= b then a :: merge1 b l2 l1
       else b :: merge1 a l1 l2
 
   let rec member a b = match a, b with
@@ -168,7 +168,7 @@ struct
              (VAL [], VAL [_]) -> VAL [0]
            | (VAL [n1], VAL [n2]) ->
              if n2=0 then raise (RunError ("modulo by 0", p))
-             else VAL [n1 mod n2]
+             else VAL [n1 % n2]
            | _ -> raise (RunError ("illegal arg to mod", p)))
         | Syntax.D (e1, p) ->
           (match (evalExp e1 table depth) with
