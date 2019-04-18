@@ -1,0 +1,12 @@
+function counthelperA(n, v) =
+  if v then call counthelperA(n + 1, largest ((count v) - 1) v)
+  else n
+
+function counthelperB(n, v) =
+  if !v then n
+  else call counthelperB(n + 1, largest ((count v) - 1) v)
+
+function mycountA(v) = call counthelperA(0, v)
+function mycountB(v) = call counthelperB(0, v)
+
+call mycountB(10000d2)
