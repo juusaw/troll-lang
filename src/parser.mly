@@ -1,8 +1,14 @@
 %{
 
-open Core
+open Base
 
 module S = Syntax
+
+module Printf = Caml.Printf
+
+module Obj = Caml.Obj
+
+module Pervasives = Caml.Pervasives
 
 let p0 = (0,0)
 

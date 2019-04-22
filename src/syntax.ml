@@ -1,4 +1,4 @@
-open Core
+open Base
 
 module Syntax =
 struct
@@ -67,7 +67,7 @@ struct
 
   let rec string_of_exp exp =
     match exp with
-      NUM (i, _) -> string_of_int i
+      NUM (i, _) -> Int.to_string i
     | EMPTY -> "{}"
     | ID (x, _) -> x
     | CONC (e1, e2, _) -> "{" ^ string_of_exp e1 ^ ", " ^ string_of_exp e2 ^ "}"
@@ -124,7 +124,7 @@ struct
     | VCONCL (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " |> " ^ string_of_exp e2 ^ ")"
     | VCONCR (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " <| " ^ string_of_exp e2 ^ ")"
     | VCONCC (e1, e2, _) -> "(" ^ string_of_exp e1 ^ " <> " ^ string_of_exp e2 ^ ")"
-    | QUESTION (q, _) -> "?" ^ string_of_float q
+    | QUESTION (q, _) -> "?" ^ Float.to_string q
     | PAIR (e1, e2, _) -> "[" ^ string_of_exp e1 ^ " , " ^ string_of_exp e2 ^ "]"
     | FIRST (e1, _) -> "%1( " ^ string_of_exp e1 ^ ")"
     | SECOND (e1, _) -> "%2( " ^ string_of_exp e1 ^ ")"

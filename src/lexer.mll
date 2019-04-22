@@ -1,8 +1,9 @@
 {
 
-open Core
+open Base
 open Lexing
 open Parser
+
 let currentLine = ref 1
 let lineStartPos = ref [0]
 
@@ -12,10 +13,9 @@ let rec getPos lexbuf = getLineCol (lexeme_start lexbuf)
 
 and getLineCol p l s = match p, l, s with
   pos, line, (p1::ps) ->
-      if pos>=p1 then (line, pos-p1)
+      if pos >= p1 then (line, pos - p1)
       else getLineCol pos (line - 1) ps
   | _, _, [] -> (0,0) (* should not happen *)
-
 
 exception LexicalError of string * (int * int) (* (message, (line, column)) *)
 
@@ -72,11 +72,11 @@ rule token = parse
                           token lexbuf } (* newlines *)
   | "\\" [^ '\n' '\012']*
                         { token lexbuf } (* comment *)
-  | ['0'-'9']+          { match int_of_string_opt (lexeme lexbuf) with
+  | ['0'-'9']+          { match Caml.int_of_string_opt (lexeme lexbuf) with
                                None   -> lexerError lexbuf "Bad integer"
                              | Some i -> Parser.NUM (i, getPos lexbuf)
                         }
-  | "0."['0'-'9']+ 	{ match float_of_string_opt (lexeme lexbuf) with
+  | "0."['0'-'9']+ 	{ match Caml.float_of_string_opt (lexeme lexbuf) with
                                None   -> lexerError lexbuf "Bad number"
                              | Some p -> Parser.FLOAT (p, getPos lexbuf)
                         }
