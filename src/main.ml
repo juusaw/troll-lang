@@ -31,7 +31,7 @@ struct
     let dice =
       let (decls,exp) = Parser.dice Lexer.token lb in
       (decls, defs exp) in
-    let roll = fun _ -> printVal (Interpreter.rollDice (Syntax.Syntax.optimize_tco dice)) in
+    let roll = fun _ ->  Interpreter.rollDice (Syntax.Syntax.optimize_tco dice) in
     List.hd (times n roll)
 
   let print_error = print (* TODO: To stderr? *)
@@ -49,7 +49,8 @@ struct
       | None -> Random.self_init () in
     try
       match run source count (fun d -> d) with
-        _ -> ()
+        Some x -> printVal x
+      | None -> ()
     with Caml.Parsing.YYexit _ -> print_error "Parser-exit\n"
        | Parser.Error ->
          let (lin,col)
